@@ -462,6 +462,10 @@ function Bingo:CreateFrames()
         self.StartButton = CreateStyledButton(self.BingoFrame, "BingoStartButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Start")
         self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.StartButton:SetScript("OnClick", function()
+            if InCombatLockdown() then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot start session during combat.")
+                return
+            end
             self:SendLockCommand(true)
         end)
         nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
@@ -471,6 +475,10 @@ function Bingo:CreateFrames()
         self.AddPlayersButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.AddPlayersButton:Hide()
         self.AddPlayersButton:SetScript("OnClick", function()
+            if InCombatLockdown() then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot add players during combat.")
+                return
+            end
             self:SendLockCommand(true)
         end)
         nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
@@ -480,6 +488,10 @@ function Bingo:CreateFrames()
         self.EndButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
         self.EndButton:Hide()
         self.EndButton:SetScript("OnClick", function()
+            if InCombatLockdown() then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot end session during combat.")
+                return
+            end
             self:SendLockCommand(false)
         end)
     else
@@ -510,6 +522,10 @@ function Bingo:CreateFrames()
         self.LeaveSessionButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.LeaveSessionButton:Hide()
         self.LeaveSessionButton:SetScript("OnClick", function()
+            if InCombatLockdown() then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot leave session during combat.")
+                return
+            end
             StaticPopup_Show("BINGO_LEAVE_SESSION_DIALOG")
         end)
     end

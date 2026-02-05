@@ -984,6 +984,7 @@ end
 -- Session locking methods
 function Bingo:SendLockCommand(locked)
     if not IsInGroup() then return end
+    if InCombatLockdown() then return end
 
     local message = locked and "LOCK" or "UNLOCK"
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, "RAID")
@@ -1023,6 +1024,9 @@ function Bingo:GetClassColoredName(fullName)
 end
 
 function Bingo:HandleAddonMessage(message, sender)
+    -- Don't process messages during combat
+    if InCombatLockdown() then return end
+
     -- sender already includes realm (e.g., "Player-Realm")
     local senderFullName = sender
 
@@ -1066,21 +1070,21 @@ function Bingo:HandleAddonMessage(message, sender)
 end
 
 function Bingo:SendJoinMessage()
-    if IsInGroup() then
-        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "JOIN", "RAID")
-    end
+    if not IsInGroup() then return end
+    if InCombatLockdown() then return end
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "JOIN", "RAID")
 end
 
 function Bingo:SendNoSessionMessage()
-    if IsInGroup() then
-        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "NOSESSION", "RAID")
-    end
+    if not IsInGroup() then return end
+    if InCombatLockdown() then return end
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "NOSESSION", "RAID")
 end
 
 function Bingo:SendPingMessage()
-    if IsInGroup() then
-        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "PING", "RAID")
-    end
+    if not IsInGroup() then return end
+    if InCombatLockdown() then return end
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "PING", "RAID")
 end
 
 function Bingo:AddSessionPlayer(name)

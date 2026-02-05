@@ -492,7 +492,12 @@ function Bingo:CreateFrames()
                 print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot end session during combat.")
                 return
             end
-            self:SendLockCommand(false)
+            if IsInGroup() then
+                self:SendLockCommand(false)
+            else
+                -- Not in a group, end session locally
+                self:SetSessionLocked(false, nil)
+            end
         end)
     else
         -- Lock indicator for followers (shown when session is locked)
@@ -1062,6 +1067,11 @@ function Bingo:HandleAddonMessage(message, sender)
     elseif message == "UNLOCK" then
         self:SetSessionLocked(false, nil)
     elseif message == "JOIN" and IS_SESSION_LEADER then
+        if not self.IsSessionLocked then
+            -- Leader has no active session, send UNLOCK to release the follower
+            self:SendLockCommand(false)
+            return
+        end
         -- Only announce if they weren't already in the session (avoids duplicate messages on reload)
         if self.SessionPlayers[senderFullName] ~= true then
             local coloredName = self:GetClassColoredName(senderFullName)
@@ -1181,9 +1191,12 @@ function Bingo:OnGroupRosterUpdate()
     -- Detect when we join a group
     if isInGroup and not self.WasInGroup then
         if IS_SESSION_LEADER then
-            -- Leader joined group with active session, ping to get status from all players
             if self.IsSessionLocked then
+                -- Leader joined group with active session, ping to get status from all players
                 self:SendPingMessage()
+            else
+                -- Leader joined group without active session, send UNLOCK to release any followers
+                self:SendLockCommand(false)
             end
         else
             -- We just joined a group, notify based on session state

@@ -273,7 +273,15 @@ function Bingo.EventHandler(_, event, ...)
             if IS_SESSION_LEADER and IsInGroup() then
                 Bingo:SendPingMessage()
             end
+        else
+            -- No active session - show Start button if leader is in a group
+            if IS_SESSION_LEADER and IsInGroup() and Bingo.StartButton then
+                Bingo.StartButton:Show()
+            end
         end
+
+        -- Initialize WasInGroup state for GROUP_ROSTER_UPDATE tracking
+        Bingo.WasInGroup = IsInGroup()
     end
 end
 
@@ -458,9 +466,10 @@ function Bingo:CreateFrames()
 
     -- Session Start/End/Add Players buttons (only for session leader)
     if IS_SESSION_LEADER then
-        -- Start button
+        -- Start button (hidden by default, shown when in a group without active session)
         self.StartButton = CreateStyledButton(self.BingoFrame, "BingoStartButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Start")
         self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.StartButton:Hide()
         self.StartButton:SetScript("OnClick", function()
             if InCombatLockdown() then
                 print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot start session during combat.")
@@ -1005,7 +1014,6 @@ end
 -- Session locking methods
 function Bingo:SendLockCommand(locked)
     if not IsInGroup() then return end
-    if InCombatLockdown() then return end
 
     local message = locked and "LOCK" or "UNLOCK"
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, "RAID")
@@ -1045,9 +1053,6 @@ function Bingo:GetClassColoredName(fullName)
 end
 
 function Bingo:HandleAddonMessage(message, sender)
-    -- Don't process messages during combat
-    if InCombatLockdown() then return end
-
     -- sender already includes realm (e.g., "Player-Realm")
     local senderFullName = sender
 
@@ -1097,19 +1102,16 @@ end
 
 function Bingo:SendJoinMessage()
     if not IsInGroup() then return end
-    if InCombatLockdown() then return end
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "JOIN", "RAID")
 end
 
 function Bingo:SendNoSessionMessage()
     if not IsInGroup() then return end
-    if InCombatLockdown() then return end
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "NOSESSION", "RAID")
 end
 
 function Bingo:SendPingMessage()
     if not IsInGroup() then return end
-    if InCombatLockdown() then return end
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "PING", "RAID")
 end
 
@@ -1197,6 +1199,8 @@ function Bingo:OnGroupRosterUpdate()
             else
                 -- Leader joined group without active session, send UNLOCK to release any followers
                 self:SendLockCommand(false)
+                -- Show Start button now that we're in a group
+                if self.StartButton then self.StartButton:Show() end
             end
         else
             -- We just joined a group, notify based on session state
@@ -1207,6 +1211,13 @@ function Bingo:OnGroupRosterUpdate()
                 -- We're not in a session, send NOSESSION
                 self:SendNoSessionMessage()
             end
+        end
+    end
+
+    -- Detect when we leave a group (leader only - hide Start button when solo)
+    if not isInGroup and self.WasInGroup then
+        if IS_SESSION_LEADER and not self.IsSessionLocked then
+            if self.StartButton then self.StartButton:Hide() end
         end
     end
 
@@ -1247,7 +1258,14 @@ function Bingo:SetSessionLocked(locked, lockedBy)
         else
             if self.EndButton then self.EndButton:Hide() end
             if self.AddPlayersButton then self.AddPlayersButton:Hide() end
-            if self.StartButton then self.StartButton:Show() end
+            -- Only show Start button if in a group
+            if self.StartButton then
+                if IsInGroup() then
+                    self.StartButton:Show()
+                else
+                    self.StartButton:Hide()
+                end
+            end
         end
     else
         -- Toggle Leave button visibility for followers
@@ -1271,7 +1289,7 @@ end
 
 function Bingo:LeaveSession()
     -- Send leave message to leader
-    if IsInGroup() and not InCombatLockdown() then
+    if IsInGroup() then
         C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "LEAVE", "RAID")
     end
 

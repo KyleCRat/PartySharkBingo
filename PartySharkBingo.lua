@@ -660,7 +660,6 @@ function Bingo:CreateButton(x, y, name)
         if not self.CurrentBingoCardBingo then
             if self:CheckForBingo() then
                 StaticPopup_Show("BINGO_WIN_DIALOG")
-                -- TODO: MESSAGE INSTANCE CHAT THAT A BINGO WAS GOT
             end
         end
     end)

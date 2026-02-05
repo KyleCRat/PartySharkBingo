@@ -486,12 +486,25 @@ function Bingo:CreateFrames()
         self.LockIndicator:Hide()
         nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
+        -- Create confirmation popup for leaving session
+        StaticPopupDialogs["BINGO_LEAVE_SESSION_DIALOG"] = {
+            text = "Leaving the session will remove your chance to win for the week, are you sure you want to leave?",
+            button1 = YES,
+            button2 = NO,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            OnAccept = function()
+                Bingo:LeaveSession()
+            end
+        }
+
         -- Leave Session button for followers (shown when in a session)
         self.LeaveSessionButton = CreateStyledButton(self.BingoFrame, "BingoLeaveSessionButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Leave")
         self.LeaveSessionButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.LeaveSessionButton:Hide()
         self.LeaveSessionButton:SetScript("OnClick", function()
-            self:LeaveSession()
+            StaticPopup_Show("BINGO_LEAVE_SESSION_DIALOG")
         end)
     end
 

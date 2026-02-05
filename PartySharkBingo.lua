@@ -316,7 +316,9 @@ function Bingo:CreateFrames()
     self.ResetAllButton = CreateStyledButton(self.BingoFrame, "BingoResetAllButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Reset All")
     self.ResetAllButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ResetAllButton:SetScript("OnClick", function()
-        StaticPopup_Show("BINGO_RESETALL_DIALOG")
+        if self:HasAnySquaresChecked() then
+            StaticPopup_Show("BINGO_RESETALL_DIALOG")
+        end
     end)
     nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
@@ -359,7 +361,14 @@ function Bingo:CreateFrames()
     self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
     self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ShuffleButton:SetScript("OnClick", function()
-        StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
+        if self:HasAnySquaresChecked() then
+            StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
+        else
+            -- No squares checked, shuffle without confirmation
+            self:LoadDefaultBingoCards()
+            self:ResetBoard()
+            self:LoadBingoCard(self.CurrentBingoCard)
+        end
     end)
 
     -- Create the import/export frame
@@ -600,6 +609,17 @@ end
 
 function Bingo:IsButtonChecked(button)
     return button.isChecked
+end
+
+function Bingo:HasAnySquaresChecked()
+    for i, button in pairs(self.BingoButtons) do
+        -- Skip the free space (center button)
+        if i ~= 13 and button.isChecked then
+            return true
+        end
+    end
+
+    return false
 end
 
 function Bingo:CreateButton(x, y, name)

@@ -1,13 +1,18 @@
 local addonName, ns = ...
 
+local FONT_PATH = "Interface\\AddOns\\PartySharkBingo\\media\\fonts\\PTSansNarrow-Bold.ttf"
+
 local Bingo = {
     ADDON_NAME = addonName,
     BingoButtons = {},
     DefaultBackdrop = {
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        edgeSize = 32,
-        insets = { left = 8, right = 8, top = 8, bottom = 8, },
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileEdge = true,
+        tileSize = 16,
+        edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 },
     }
 }
 
@@ -198,82 +203,23 @@ function Bingo:CreateFrames()
     self.BingoFrame:SetPoint("CENTER")
     if self.BingoFrame.SetBackdrop then
         self.BingoFrame:SetBackdrop(self.DefaultBackdrop)
+        self.BingoFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+        self.BingoFrame:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
     end
     tinsert(UISpecialFrames, self.BingoFrame:GetName())
 
     -- Add bingo card title text to main frame
     self.BingoFrame.text = self.BingoFrame:CreateFontString(nil, "OVERLAY")
-    self.BingoFrame.text:SetFont("Fonts\\FRIZQT__.TTF", 32, "OUTLINE")
+    self.BingoFrame.text:SetFont(FONT_PATH, 32, "OUTLINE")
     self.BingoFrame.text:SetPoint("TOPLEFT", 15, -55)
     self.BingoFrame.text:SetPoint("BOTTOMRIGHT", -15, 430)
     self.BingoFrame.text:SetText("Bingo!")
 
     -- Add close button to main frame
     self.BingoFrameCloseButton = CreateFrame("Button", "BingoFrameCloseButton", self.BingoFrame, "UIPanelCloseButton")
-    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -10, -10)
+    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -2, -2)
     self.BingoFrameCloseButton:SetScript("OnClick", function()
         self.BingoFrame:Hide()
-    end)
-
-    -- Create confirmation popup for reset button
-    local resetCard = function(self)
-        local cardID = tonumber(self.EditBox:GetText())
-        if ((not cardID) or (cardID < 1) or (cardID > 25)) then
-            print("|cffff0000Error!|cffffffff Invalid card ID |cffADFF2F(number, between 1-25)|cffffffff: |cffFFFFE0'" ..
-                self.EditBox:GetText() .. "'")
-        else
-            Bingo:SetButtonChecked(Bingo.BingoButtons[cardID], false)
-            Bingo.CurrentBingoCardBingo = Bingo:CheckForBingo()
-        end
-    end
-
-    StaticPopupDialogs["BINGO_RESET_DIALOG"] = {
-        text = "Enter the card ID you wish to reset.",
-        button1 = RESET,
-        button2 = CANCEL,
-        timeout = 0,
-        whileDead = true,
-        hasEditBox = true,
-        autoFocus = true,
-        OnAccept = resetCard,
-        OnShow = function(self)
-            self.Buttons[1]:Disable()
-            for i, b in pairs(Bingo.BingoButtons) do
-                b:SetText(i)
-                b.text:Hide()
-            end
-        end,
-        OnHide = function(self)
-            for i, b in pairs(Bingo.BingoButtons) do
-                b:SetText("")
-                b.text:Show()
-            end
-        end,
-        EditBoxOnTextChanged = function(self)
-            if (self:GetText() == "") then
-                self:GetParent().Buttons[1]:Disable()
-            else
-                self:GetParent().Buttons[1]:Enable()
-            end
-        end,
-        EditBoxOnEscapePressed = function(self)
-            self:GetParent():Hide()
-        end,
-        EditBoxOnEnterPressed = function(self)
-            if self:GetParent().Buttons[1]:IsEnabled() then
-                resetCard(self:GetParent())
-                self:GetParent():Hide()
-            end
-        end
-    }
-
-    -- Add reset button to the main frame
-    self.ResetButton = CreateFrame("Button", "BingoResetButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ResetButton:SetSize(70, 25)
-    self.ResetButton:SetPoint("TOPLEFT", 15, -15)
-    self.ResetButton:SetText("Reset")
-    self.ResetButton:SetScript("OnClick", function()
-        StaticPopup_Show("BINGO_RESET_DIALOG")
     end)
 
     -- Create confirmation popup for reset all button
@@ -293,7 +239,7 @@ function Bingo:CreateFrames()
     -- Add reset all button to the main frame
     self.ResetAllButton = CreateFrame("Button", "BingoResetAllButton", self.BingoFrame, "UIPanelButtonTemplate")
     self.ResetAllButton:SetSize(70, 25)
-    self.ResetAllButton:SetPoint("TOPLEFT", 90, -15)
+    self.ResetAllButton:SetPoint("TOPLEFT", 15, -15)
     self.ResetAllButton:SetText("Reset All")
     self.ResetAllButton:SetScript("OnClick", function()
         StaticPopup_Show("BINGO_RESETALL_DIALOG")
@@ -302,7 +248,7 @@ function Bingo:CreateFrames()
     -- Add import button to the main frame
     self.ImportButton = CreateFrame("Button", "BingoImportButton", self.BingoFrame, "UIPanelButtonTemplate")
     self.ImportButton:SetSize(70, 25)
-    self.ImportButton:SetPoint("TOPLEFT", 165, -15)
+    self.ImportButton:SetPoint("TOPLEFT", 90, -15)
     self.ImportButton:SetText("Import")
     self.ImportButton:SetScript("OnClick", function()
         self.BingoEditBox:SetText("")
@@ -313,11 +259,11 @@ function Bingo:CreateFrames()
     end)
 
     -- Add export button to the main frame
-    self.ImportButton = CreateFrame("Button", "BingoExportButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ImportButton:SetSize(70, 25)
-    self.ImportButton:SetPoint("TOPLEFT", 240, -15)
-    self.ImportButton:SetText("Export")
-    self.ImportButton:SetScript("OnClick", function()
+    self.ExportButton = CreateFrame("Button", "BingoExportButton", self.BingoFrame, "UIPanelButtonTemplate")
+    self.ExportButton:SetSize(70, 25)
+    self.ExportButton:SetPoint("TOPLEFT", 165, -15)
+    self.ExportButton:SetText("Export")
+    self.ExportButton:SetScript("OnClick", function()
         if self.CurrentBingoCard then
             self.BingoEditBox:SetText(ns.serpent.block(BingoCards[self.CurrentBingoCard],
                 { sparse = true, comment = false }))
@@ -351,7 +297,7 @@ function Bingo:CreateFrames()
     -- Add shuffle button to the main frame
     self.ShuffleButton = CreateFrame("Button", "BingoShuffleButton", self.BingoFrame, "UIPanelButtonTemplate")
     self.ShuffleButton:SetSize(70, 25)
-    self.ShuffleButton:SetPoint("TOPLEFT", 315, -15)
+    self.ShuffleButton:SetPoint("TOPLEFT", 240, -15)
     self.ShuffleButton:SetText("Shuffle")
     self.ShuffleButton:SetScript("OnClick", function()
         StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
@@ -373,14 +319,31 @@ function Bingo:CreateFrames()
     self.BingoEditFrame:SetResizable(true)
     if self.BingoEditFrame.SetBackdrop then
         self.BingoEditFrame:SetBackdrop(self.DefaultBackdrop)
+        self.BingoEditFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+        self.BingoEditFrame:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
     end
     tinsert(UISpecialFrames, self.BingoEditFrame:GetName())
 
+    -- Add a background for the text input area
+    self.BingoEditBoxBackground = CreateFrame("Frame", "BingoEditBoxBackground", self.BingoEditFrame, BackdropTemplateMixin and "BackdropTemplate")
+    self.BingoEditBoxBackground:SetPoint("TOPLEFT", 8, -8)
+    self.BingoEditBoxBackground:SetPoint("BOTTOMRIGHT", -8, 45)
+    self.BingoEditBoxBackground:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    self.BingoEditBoxBackground:SetBackdropColor(0, 0, 0, 1)
+    self.BingoEditBoxBackground:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
     -- Add a scroll frame to the import/export frame
-    self.BingoScrollFrame = CreateFrame("ScrollFrame", "BingoScrollFrame", self.BingoEditFrame,
+    self.BingoScrollFrame = CreateFrame("ScrollFrame", "BingoScrollFrame", self.BingoEditBoxBackground,
         "UIPanelScrollFrameTemplate")
-    self.BingoScrollFrame:SetPoint("TOPLEFT", 12, -12)
-    self.BingoScrollFrame:SetPoint("BOTTOMRIGHT", -34, 49)
+    self.BingoScrollFrame:SetPoint("TOPLEFT", 8, -8)
+    self.BingoScrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
 
     -- Add the edit box to the scroll frame
     self.BingoEditBox = CreateFrame("EditBox", "BingoEditBox", self.BingoScrollFrame)
@@ -594,7 +557,7 @@ function Bingo:CreateButton(x, y, name)
     bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
 
     bingoButton.text = bingoButton:CreateFontString(nil, "OVERLAY")
-    bingoButton.text:SetFont("Fonts\\FRIZQT__.TTF", 10, "OUTLINE")
+    bingoButton.text:SetFont(FONT_PATH, 10, "OUTLINE")
     bingoButton.text:SetPoint("TOPLEFT", 5, -5)
     bingoButton.text:SetPoint("BOTTOMRIGHT", -5, 5)
 
@@ -691,12 +654,12 @@ function Bingo:LoadBingoCard(cardName)
         end
 
         -- Load card title
-        self.BingoFrame.text:SetFont("Fonts\\FRIZQT__.TTF", BingoCards[cardName]["TitleSize"] or 20, "OUTLINE")
+        self.BingoFrame.text:SetFont(FONT_PATH, BingoCards[cardName]["TitleSize"] or 20, "OUTLINE")
         self.BingoFrame.text:SetText(BingoCards[cardName]["Title"] or "Bingo!")
 
         -- Set center/free button text and size
         self.BingoButtons[13].text:SetText(BingoCards[cardName]["FreeSpace"] or "Free Space")
-        self.BingoButtons[13].text:SetFont("Fonts\\FRIZQT__.TTF",
+        self.BingoButtons[13].text:SetFont(FONT_PATH,
             (BingoCards[cardName]["FreeSpaceSize"] or BingoCards[cardName]["Size25"] or BingoCards[cardName]["FontSize"] or 10),
             "OUTLINE")
         self:SetButtonChecked(self.BingoButtons[13], true)
@@ -723,7 +686,7 @@ function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
     self.BingoButtons[buttonID].name = text
 
     self.BingoButtons[buttonID].text:SetText(text)
-    self.BingoButtons[buttonID].text:SetFont("Fonts\\FRIZQT__.TTF",
+    self.BingoButtons[buttonID].text:SetFont(FONT_PATH,
         (BingoCards[cardName]["Size" .. cardID] or BingoCards[cardName]["FontSize"] or 10), "OUTLINE")
     self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
 end
@@ -752,8 +715,8 @@ function Bingo:CheckForBingo()
         {name = "Column 4", indices = {4, 9, 14, 19, 24}},
         {name = "Column 5", indices = {5, 10, 15, 20, 25}},
         -- Diagonal lines
-        {name = "Diagonal tl to br", indices = {1, 7, 13, 19, 25}},
-        {name = "Diagonal tr to bl", indices = {5, 9, 13, 17, 21}},
+        {name = "Diagonal ╲ ", indices = {1, 7, 13, 19, 25}},
+        {name = "Diagonal ╱ ", indices = {5, 9, 13, 17, 21}},
         -- Four corners
         {name = "Four Corners", indices = {1, 5, 21, 25}},
     }

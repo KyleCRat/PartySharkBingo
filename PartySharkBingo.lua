@@ -5,6 +5,12 @@ local FONT_PATH = "Interface\\AddOns\\PartySharkBingo\\media\\fonts\\PTSansNarro
 -- Feature flags
 local SHOW_IMPORT_EXPORT_BUTTONS = false
 
+-- Addon message constants
+local ADDON_MSG_PREFIX = "PSBINGO"
+
+-- Session leader is determined by character name
+local IS_SESSION_LEADER = (UnitName("player") == "Yvairel")
+
 -- Create a styled button that matches our dark UI theme
 local function CreateStyledButton(parent, name, width, height, text)
     local button = CreateFrame("Button", name, parent, BackdropTemplateMixin and "BackdropTemplate")
@@ -57,6 +63,8 @@ end
 local Bingo = {
     ADDON_NAME = addonName,
     BingoButtons = {},
+    IsSessionLocked = false,
+    SessionLockedBy = nil,
     DefaultBackdrop = {
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -187,7 +195,16 @@ function Bingo.LoadDefaultBingoCards()
     }
 end
 
-function Bingo.EventHandler(_, event, addon_name)
+function Bingo.EventHandler(_, event, ...)
+    if event == "CHAT_MSG_ADDON" then
+        local prefix, message, channel, sender = ...
+        if prefix == ADDON_MSG_PREFIX then
+            Bingo:HandleAddonMessage(message, sender)
+        end
+        return
+    end
+
+    local addon_name = ...
     if event == "ENCOUNTER_START" then
         Bingo.WasShownBeforeCombat = Bingo.BingoFrame:IsShown()
         if Bingo.WasShownBeforeCombat then
@@ -241,6 +258,10 @@ function Bingo:CreateFrames()
     self.BingoFrame:RegisterEvent("ENCOUNTER_START")
     self.BingoFrame:RegisterEvent("ENCOUNTER_END")
     self.BingoFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self.BingoFrame:RegisterEvent("CHAT_MSG_ADDON")
+
+    -- Register addon message prefix for session locking
+    C_ChatInfo.RegisterAddonMessagePrefix(ADDON_MSG_PREFIX)
 
 
     -- Customize main frame
@@ -361,6 +382,12 @@ function Bingo:CreateFrames()
     self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
     self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ShuffleButton:SetScript("OnClick", function()
+        -- Check if session is locked
+        if self.IsSessionLocked then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 Session is locked. Cannot shuffle.")
+            return
+        end
+
         if self:HasAnySquaresChecked() then
             StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
         else
@@ -370,6 +397,33 @@ function Bingo:CreateFrames()
             self:LoadBingoCard(self.CurrentBingoCard)
         end
     end)
+    nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+    -- Session Lock/Unlock buttons (only for session leader)
+    if IS_SESSION_LEADER then
+        -- Lock button
+        self.LockButton = CreateStyledButton(self.BingoFrame, "BingoLockButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Lock")
+        self.LockButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.LockButton:SetScript("OnClick", function()
+            self:SendLockCommand(true)
+        end)
+
+        -- Unlock button (same position, initially hidden)
+        self.UnlockButton = CreateStyledButton(self.BingoFrame, "BingoUnlockButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Unlock")
+        self.UnlockButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.UnlockButton:Hide()
+        self.UnlockButton:SetScript("OnClick", function()
+            self:SendLockCommand(false)
+        end)
+    else
+        -- Lock indicator for followers (shown when session is locked)
+        self.LockIndicator = self.BingoFrame:CreateFontString(nil, "OVERLAY")
+        self.LockIndicator:SetFont(FONT_PATH, 12, "OUTLINE")
+        self.LockIndicator:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y - 6)
+        self.LockIndicator:SetTextColor(1, 0.3, 0.3, 1)  -- Red color
+        self.LockIndicator:SetText("Locked")
+        self.LockIndicator:Hide()
+    end
 
     -- Create the import/export frame
     self.BingoEditFrame = CreateFrame("Frame", "BingoEditFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
@@ -834,6 +888,84 @@ function Bingo:AnnounceBingo(winningIndices, lineName)
         SendChatMessage(message, "PARTY")
     else
         print("|cffFFC125" .. message)
+    end
+end
+
+-- Session locking methods
+function Bingo:SendLockCommand(locked)
+    local message = locked and "LOCK" or "UNLOCK"
+    local channel
+
+    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        channel = "INSTANCE_CHAT"
+    elseif IsInRaid() then
+        channel = "RAID"
+    elseif IsInGroup() then
+        channel = "PARTY"
+    else
+        -- Not in a group, just update local state
+        return
+    end
+
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, channel)
+end
+
+function Bingo:HandleAddonMessage(message, sender)
+    -- Strip realm name from sender if present
+    local senderName = strsplit("-", sender)
+
+    if message == "LOCK" then
+        self:SetSessionLocked(true, senderName)
+    elseif message == "UNLOCK" then
+        self:SetSessionLocked(false, nil)
+    end
+end
+
+function Bingo:SetSessionLocked(locked, lockedBy)
+    self.IsSessionLocked = locked
+    self.SessionLockedBy = lockedBy
+    self:UpdateShuffleButtonState()
+
+    -- Toggle lock/unlock button visibility for leader
+    if IS_SESSION_LEADER then
+        if locked then
+            if self.LockButton then self.LockButton:Hide() end
+            if self.UnlockButton then self.UnlockButton:Show() end
+        else
+            if self.UnlockButton then self.UnlockButton:Hide() end
+            if self.LockButton then self.LockButton:Show() end
+        end
+    end
+
+    if locked then
+        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session locked by " .. (lockedBy or "leader") .. ". Shuffling disabled.")
+    else
+        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session unlocked. Shuffling enabled.")
+    end
+end
+
+function Bingo:UpdateShuffleButtonState()
+    if not self.ShuffleButton then return end
+
+    if self.IsSessionLocked then
+        self.ShuffleButton:Disable()
+        self.ShuffleButton:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+        self.ShuffleButton.text:SetTextColor(0.5, 0.5, 0.5, 1)
+
+        -- Show lock indicator (for non-leaders)
+        if self.LockIndicator then
+            self.LockIndicator:Show()
+            self.LockIndicator:SetText("Locked by " .. (self.SessionLockedBy or "leader"))
+        end
+    else
+        self.ShuffleButton:Enable()
+        self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+        self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)
+
+        -- Hide lock indicator
+        if self.LockIndicator then
+            self.LockIndicator:Hide()
+        end
     end
 end
 

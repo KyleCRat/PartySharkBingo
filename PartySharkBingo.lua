@@ -2,6 +2,58 @@ local addonName, ns = ...
 
 local FONT_PATH = "Interface\\AddOns\\PartySharkBingo\\media\\fonts\\PTSansNarrow-Bold.ttf"
 
+-- Feature flags
+local SHOW_IMPORT_EXPORT_BUTTONS = false
+
+-- Create a styled button that matches our dark UI theme
+local function CreateStyledButton(parent, name, width, height, text)
+    local button = CreateFrame("Button", name, parent, BackdropTemplateMixin and "BackdropTemplate")
+    button:SetSize(width, height)
+
+    -- Dark background with border
+    button:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    button:SetBackdropColor(0.15, 0.15, 0.15, 1)
+    button:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+
+    -- Button text
+    button.text = button:CreateFontString(nil, "OVERLAY")
+    button.text:SetFont(FONT_PATH, 14, "OUTLINE")
+    button.text:SetPoint("CENTER", 0, 0)
+    button.text:SetText(text)
+    button.text:SetTextColor(1, 0.82, 0, 1) -- Gold color
+
+    -- Hover effect
+    button:SetScript("OnEnter", function(self)
+        self:SetBackdropColor(0.25, 0.25, 0.25, 1)
+        self:SetBackdropBorderColor(1, 0.82, 0, 1) -- Gold border on hover
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(0.15, 0.15, 0.15, 1)
+        self:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+    end)
+
+    -- Click effect
+    button:SetScript("OnMouseDown", function(self)
+        self:SetBackdropColor(0.1, 0.1, 0.1, 1)
+        self.text:SetPoint("CENTER", 1, -1)
+    end)
+
+    button:SetScript("OnMouseUp", function(self)
+        self:SetBackdropColor(0.25, 0.25, 0.25, 1)
+        self.text:SetPoint("CENTER", 0, 0)
+    end)
+
+    return button
+end
+
 local Bingo = {
     ADDON_NAME = addonName,
     BingoButtons = {},
@@ -86,10 +138,10 @@ function Bingo.LoadDefaultBingoCards()
     BingoCards = {
         Default = {
             Title = "Party Shark 25k Raid Week Bingo",
-            TitleSize = 18,
-            FontSize = 16,
+            TitleSize = 24,
+            FontSize = 18,
             FreeSpace = "Free",
-            FreeSpaceSize = 14,
+            FreeSpaceSize = 26,
             [1] = "Guess Who Died",
             [2] = "Game Crash",
             Size2 = 16,
@@ -100,13 +152,13 @@ function Bingo.LoadDefaultBingoCards()
             [7] = "<Vod Review>",
             Size7 = 14,
             [8] = "HR Requested",
-            Size8 = 12,
+            Size8 = 14,
             [9] = "Shut up Grun",
             [10] = "Rezy Get's Bullied",
             [11] = "Rez Dissar",
-            Size11 = 16,
+            Size11 = 20,
             [12] = "Missed Consumes",
-            Size12 = 12,
+            Size12 = 13,
             [13] = "Addon Out of Date",
             [14] = "Vibekiller Enters the Chat",
             Size14 = 14,
@@ -116,21 +168,21 @@ function Bingo.LoadDefaultBingoCards()
             Size16 = 12,
             [17] = "Tenc Stalks",
             [18] = "Muted",
-            Size18 = 16,
+            Size18 = 24,
             [19] = "Raidlead Hijacked",
             Size19 = 14,
             [20] = "Braainss' Vacation",
             Size20 = 14,
             [21] = "Last Pull Magic",
             [22] = "Substances Mentioned",
-            Size22 = 10,
+            Size22 = 12,
             [23] = "Tenc 'Inspiring' Speech",
-            Size23 = 12,
+            Size23 = 14,
             [24] = "Soak",
-            Size24 = 20,
+            Size24 = 24,
             [25] = "Pull Jinxed",
             [26] = "Don't Die to X; Dies to X",
-            Size26 = 11,
+            Size26 = 14,
         }
     }
 end
@@ -217,7 +269,7 @@ function Bingo:CreateFrames()
 
     -- Add close button to main frame
     self.BingoFrameCloseButton = CreateFrame("Button", "BingoFrameCloseButton", self.BingoFrame, "UIPanelCloseButton")
-    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -2, -2)
+    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -4, -4)
     self.BingoFrameCloseButton:SetScript("OnClick", function()
         self.BingoFrame:Hide()
     end)
@@ -236,48 +288,6 @@ function Bingo:CreateFrames()
         end
     }
 
-    -- Add reset all button to the main frame
-    self.ResetAllButton = CreateFrame("Button", "BingoResetAllButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ResetAllButton:SetSize(70, 25)
-    self.ResetAllButton:SetPoint("TOPLEFT", 15, -15)
-    self.ResetAllButton:SetText("Reset All")
-    self.ResetAllButton:SetScript("OnClick", function()
-        StaticPopup_Show("BINGO_RESETALL_DIALOG")
-    end)
-
-    -- Add import button to the main frame
-    self.ImportButton = CreateFrame("Button", "BingoImportButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ImportButton:SetSize(70, 25)
-    self.ImportButton:SetPoint("TOPLEFT", 90, -15)
-    self.ImportButton:SetText("Import")
-    self.ImportButton:SetScript("OnClick", function()
-        self.BingoEditBox:SetText("")
-        self.BingoSaveButton:Show()
-        self.BingoSelectAllButton:Hide()
-        self.BingoFrame:Hide()
-        self.BingoEditFrame:Show()
-    end)
-
-    -- Add export button to the main frame
-    self.ExportButton = CreateFrame("Button", "BingoExportButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ExportButton:SetSize(70, 25)
-    self.ExportButton:SetPoint("TOPLEFT", 165, -15)
-    self.ExportButton:SetText("Export")
-    self.ExportButton:SetScript("OnClick", function()
-        if self.CurrentBingoCard then
-            self.BingoEditBox:SetText(ns.serpent.block(BingoCards[self.CurrentBingoCard],
-                { sparse = true, comment = false }))
-            self.BingoEditBox:HighlightText()
-            self.BingoSaveButton:Hide()
-            self.BingoSelectAllButton:Show()
-            self.BingoFrame:Hide()
-            self.BingoEditFrame:Show()
-            self.BingoEditBox:SetFocus(true)
-        else
-            print("|cffff0000Error!|cffffffff Load a card before trying to export.")
-        end
-    end)
-
     -- Create confirmation popup for shuffle button
     StaticPopupDialogs["BINGO_SHUFFLE_DIALOG"] = {
         text = "Shuffling the bingo card will also reset all spaces, do you wish to continue?",
@@ -294,11 +304,60 @@ function Bingo:CreateFrames()
         end
     }
 
-    -- Add shuffle button to the main frame
-    self.ShuffleButton = CreateFrame("Button", "BingoShuffleButton", self.BingoFrame, "UIPanelButtonTemplate")
-    self.ShuffleButton:SetSize(70, 25)
-    self.ShuffleButton:SetPoint("TOPLEFT", 240, -15)
-    self.ShuffleButton:SetText("Shuffle")
+    -- Create toolbar buttons with dynamic positioning
+    local BUTTON_WIDTH = 90
+    local BUTTON_HEIGHT = 28
+    local BUTTON_SPACING = 5
+    local BUTTON_START_X = 15
+    local BUTTON_Y = -12
+    local nextButtonX = BUTTON_START_X
+
+    -- Reset All button (always shown)
+    self.ResetAllButton = CreateStyledButton(self.BingoFrame, "BingoResetAllButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Reset All")
+    self.ResetAllButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+    self.ResetAllButton:SetScript("OnClick", function()
+        StaticPopup_Show("BINGO_RESETALL_DIALOG")
+    end)
+    nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+    -- Import button (controlled by SHOW_IMPORT_EXPORT_BUTTONS flag)
+    if SHOW_IMPORT_EXPORT_BUTTONS then
+        self.ImportButton = CreateStyledButton(self.BingoFrame, "BingoImportButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Import")
+        self.ImportButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.ImportButton:SetScript("OnClick", function()
+            self.BingoEditBox:SetText("")
+            self.BingoSaveButton:Show()
+            self.BingoSelectAllButton:Hide()
+            self.BingoFrame:Hide()
+            self.BingoEditFrame:Show()
+        end)
+        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+    end
+
+    -- Export button (controlled by SHOW_IMPORT_EXPORT_BUTTONS flag)
+    if SHOW_IMPORT_EXPORT_BUTTONS then
+        self.ExportButton = CreateStyledButton(self.BingoFrame, "BingoExportButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Export")
+        self.ExportButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.ExportButton:SetScript("OnClick", function()
+            if self.CurrentBingoCard then
+                self.BingoEditBox:SetText(ns.serpent.block(BingoCards[self.CurrentBingoCard],
+                    { sparse = true, comment = false }))
+                self.BingoEditBox:HighlightText()
+                self.BingoSaveButton:Hide()
+                self.BingoSelectAllButton:Show()
+                self.BingoFrame:Hide()
+                self.BingoEditFrame:Show()
+                self.BingoEditBox:SetFocus(true)
+            else
+                print("|cffff0000Error!|cffffffff Load a card before trying to export.")
+            end
+        end)
+        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+    end
+
+    -- Shuffle button (always shown)
+    self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
+    self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ShuffleButton:SetScript("OnClick", function()
         StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
     end)

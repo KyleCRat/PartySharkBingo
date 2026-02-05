@@ -65,6 +65,7 @@ local Bingo = {
     BingoButtons = {},
     IsSessionLocked = false,
     SessionLockedBy = nil,
+    SessionPlayers = {},
     DefaultBackdrop = {
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -224,6 +225,10 @@ function Bingo.EventHandler(_, event, ...)
             Bingo.WasShownBeforeCombat = false
         end
 
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        Bingo:CheckForNewGroupMembers()
+        return
+
     elseif event == "ADDON_LOADED" and addon_name == Bingo.ADDON_NAME then
         if not BingoSettings then
             Bingo.LoadDefaultSettings()
@@ -242,6 +247,17 @@ function Bingo.EventHandler(_, event, ...)
         print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff Loaded. Type /psbingo or /psb to open.")
 
         Bingo:LoadBingoCard(BingoSettings.DefaultCard or "Default")
+
+        -- Restore session lock state from saved variables
+        if BingoSettings.IsSessionLocked then
+            -- Restore session players
+            if BingoSettings.SessionPlayers then
+                Bingo.SessionPlayers = BingoSettings.SessionPlayers
+            end
+            Bingo:SetSessionLocked(BingoSettings.IsSessionLocked, BingoSettings.SessionLockedBy)
+            -- Update display after restoring
+            Bingo:UpdateSessionPlayersDisplay()
+        end
     end
 end
 
@@ -259,6 +275,7 @@ function Bingo:CreateFrames()
     self.BingoFrame:RegisterEvent("ENCOUNTER_END")
     self.BingoFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     self.BingoFrame:RegisterEvent("CHAT_MSG_ADDON")
+    self.BingoFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
     -- Register addon message prefix for session locking
     C_ChatInfo.RegisterAddonMessagePrefix(ADDON_MSG_PREFIX)
@@ -280,6 +297,30 @@ function Bingo:CreateFrames()
         self.BingoFrame:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
     end
     tinsert(UISpecialFrames, self.BingoFrame:GetName())
+
+    -- Create session players panel for leader (to the left of main frame)
+    if IS_SESSION_LEADER then
+        self.SessionPlayersFrame = CreateFrame("Frame", "BingoSessionPlayersFrame", self.BingoFrame, BackdropTemplateMixin and "BackdropTemplate")
+        self.SessionPlayersFrame:SetWidth(150)
+        self.SessionPlayersFrame:SetHeight(500)
+        self.SessionPlayersFrame:SetPoint("TOPRIGHT", self.BingoFrame, "TOPLEFT", -5, 0)
+        if self.SessionPlayersFrame.SetBackdrop then
+            self.SessionPlayersFrame:SetBackdrop(self.DefaultBackdrop)
+            self.SessionPlayersFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
+            self.SessionPlayersFrame:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+        end
+
+        -- Title for session players panel
+        self.SessionPlayersFrame.title = self.SessionPlayersFrame:CreateFontString(nil, "OVERLAY")
+        self.SessionPlayersFrame.title:SetFont(FONT_PATH, 14, "OUTLINE")
+        self.SessionPlayersFrame.title:SetPoint("TOP", 0, -10)
+        self.SessionPlayersFrame.title:SetTextColor(1, 0.82, 0, 1)
+        self.SessionPlayersFrame.title:SetText("Session Players")
+
+        -- Container for player names
+        self.SessionPlayerNames = {}
+        self.SessionPlayersFrame:Hide()
+    end
 
     -- Add bingo card title text to main frame
     self.BingoFrame.text = self.BingoFrame:CreateFontString(nil, "OVERLAY")
@@ -399,20 +440,30 @@ function Bingo:CreateFrames()
     end)
     nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
-    -- Session Lock/Unlock buttons (only for session leader)
+    -- Session Start/End/Add Players buttons (only for session leader)
     if IS_SESSION_LEADER then
-        -- Lock button
-        self.LockButton = CreateStyledButton(self.BingoFrame, "BingoLockButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Lock")
-        self.LockButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
-        self.LockButton:SetScript("OnClick", function()
+        -- Start button
+        self.StartButton = CreateStyledButton(self.BingoFrame, "BingoStartButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Start")
+        self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.StartButton:SetScript("OnClick", function()
             self:SendLockCommand(true)
         end)
+        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
-        -- Unlock button (same position, initially hidden)
-        self.UnlockButton = CreateStyledButton(self.BingoFrame, "BingoUnlockButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Unlock")
-        self.UnlockButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
-        self.UnlockButton:Hide()
-        self.UnlockButton:SetScript("OnClick", function()
+        -- Add Players button (only visible during active session)
+        self.AddPlayersButton = CreateStyledButton(self.BingoFrame, "BingoAddPlayersButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Add Players")
+        self.AddPlayersButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.AddPlayersButton:Hide()
+        self.AddPlayersButton:SetScript("OnClick", function()
+            self:SendLockCommand(true)
+        end)
+        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+        -- End button (same position as Start, initially hidden)
+        self.EndButton = CreateStyledButton(self.BingoFrame, "BingoEndButton", BUTTON_WIDTH, BUTTON_HEIGHT, "End")
+        self.EndButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
+        self.EndButton:Hide()
+        self.EndButton:SetScript("OnClick", function()
             self:SendLockCommand(false)
         end)
     else
@@ -423,6 +474,15 @@ function Bingo:CreateFrames()
         self.LockIndicator:SetTextColor(1, 0.3, 0.3, 1)  -- Red color
         self.LockIndicator:SetText("Locked")
         self.LockIndicator:Hide()
+        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+        -- Leave Session button for followers (shown when in a session)
+        self.LeaveSessionButton = CreateStyledButton(self.BingoFrame, "BingoLeaveSessionButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Leave")
+        self.LeaveSessionButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+        self.LeaveSessionButton:Hide()
+        self.LeaveSessionButton:SetScript("OnClick", function()
+            self:LeaveSession()
+        end)
     end
 
     -- Create the import/export frame
@@ -893,21 +953,44 @@ end
 
 -- Session locking methods
 function Bingo:SendLockCommand(locked)
-    local message = locked and "LOCK" or "UNLOCK"
-    local channel
+    if not IsInGroup() then return end
 
-    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-        channel = "INSTANCE_CHAT"
-    elseif IsInRaid() then
-        channel = "RAID"
+    local message = locked and "LOCK" or "UNLOCK"
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, "RAID")
+end
+
+function Bingo:GetClassColoredName(name)
+    -- Try to find the player in raid or party
+    local unit
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local raidName = UnitName("raid" .. i)
+            if raidName == name then
+                unit = "raid" .. i
+                break
+            end
+        end
     elseif IsInGroup() then
-        channel = "PARTY"
-    else
-        -- Not in a group, just update local state
-        return
+        for i = 1, GetNumGroupMembers() - 1 do
+            local partyName = UnitName("party" .. i)
+            if partyName == name then
+                unit = "party" .. i
+                break
+            end
+        end
     end
 
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, channel)
+    if unit then
+        local _, class = UnitClass(unit)
+        if class then
+            local color = RAID_CLASS_COLORS[class]
+            if color then
+                return string.format("|cff%02x%02x%02x%s|r", color.r * 255, color.g * 255, color.b * 255, name)
+            end
+        end
+    end
+
+    return name
 end
 
 function Bingo:HandleAddonMessage(message, sender)
@@ -916,32 +999,206 @@ function Bingo:HandleAddonMessage(message, sender)
 
     if message == "LOCK" then
         self:SetSessionLocked(true, senderName)
+        -- Send JOIN response to leader (only if not the leader)
+        if not IS_SESSION_LEADER then
+            self:SendJoinMessage()
+        end
     elseif message == "UNLOCK" then
         self:SetSessionLocked(false, nil)
+    elseif message == "JOIN" and IS_SESSION_LEADER then
+        local coloredName = self:GetClassColoredName(senderName)
+        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " joined the session.")
+        self:AddSessionPlayer(senderName)
+    elseif message == "LEAVE" and IS_SESSION_LEADER then
+        local coloredName = self:GetClassColoredName(senderName)
+        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " left the session.")
+        self:RemoveSessionPlayer(senderName)
+    end
+end
+
+function Bingo:SendJoinMessage()
+    if IsInGroup() then
+        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "JOIN", "RAID")
+    end
+end
+
+function Bingo:AddSessionPlayer(name)
+    if not IS_SESSION_LEADER then return end
+
+    -- Add to session players list or confirm if pending
+    if self.SessionPlayers[name] ~= true then
+        self.SessionPlayers[name] = true
+        BingoSettings.SessionPlayers = self.SessionPlayers
+        self:UpdateSessionPlayersDisplay()
+    end
+end
+
+function Bingo:RemoveSessionPlayer(name)
+    if not IS_SESSION_LEADER then return end
+
+    if self.SessionPlayers[name] then
+        self.SessionPlayers[name] = nil
+        BingoSettings.SessionPlayers = self.SessionPlayers
+        self:UpdateSessionPlayersDisplay()
+    end
+end
+
+function Bingo:ClearSessionPlayers()
+    self.SessionPlayers = {}
+    BingoSettings.SessionPlayers = nil
+    self:UpdateSessionPlayersDisplay()
+end
+
+function Bingo:UpdateSessionPlayersDisplay()
+    if not IS_SESSION_LEADER or not self.SessionPlayersFrame then return end
+
+    -- Clear existing name labels
+    for _, fontString in pairs(self.SessionPlayerNames) do
+        fontString:Hide()
+        fontString:SetText("")
+    end
+
+    -- Sort player names alphabetically (only show confirmed players)
+    local sortedNames = {}
+    for name, confirmed in pairs(self.SessionPlayers) do
+        if confirmed then
+            table.insert(sortedNames, name)
+        end
+    end
+    table.sort(sortedNames)
+
+    -- Create/update name labels
+    local yOffset = -30
+    for i, name in ipairs(sortedNames) do
+        if not self.SessionPlayerNames[i] then
+            self.SessionPlayerNames[i] = self.SessionPlayersFrame:CreateFontString(nil, "OVERLAY")
+            self.SessionPlayerNames[i]:SetFont(FONT_PATH, 12, "OUTLINE")
+            self.SessionPlayerNames[i]:SetPoint("TOPLEFT", 10, yOffset)
+            self.SessionPlayerNames[i]:SetPoint("TOPRIGHT", -10, yOffset)
+            self.SessionPlayerNames[i]:SetJustifyH("LEFT")
+        end
+
+        -- Get class colored name
+        local coloredName = self:GetClassColoredName(name)
+        self.SessionPlayerNames[i]:SetText(coloredName)
+        self.SessionPlayerNames[i]:SetPoint("TOPLEFT", 10, yOffset)
+        self.SessionPlayerNames[i]:Show()
+
+        yOffset = yOffset - 18
+    end
+
+    -- Update title with count
+    if self.SessionPlayersFrame.title then
+        local count = #sortedNames
+        self.SessionPlayersFrame.title:SetText("Session Players (" .. count .. ")")
+    end
+end
+
+function Bingo:CheckForNewGroupMembers()
+    -- Only the leader cares about new members during a session
+    if not IS_SESSION_LEADER or not self.IsSessionLocked then
+        return
+    end
+
+    -- Check all current group members against SessionPlayers
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local name = UnitName("raid" .. i)
+            if name and not self.SessionPlayers[name] then
+                local coloredName = self:GetClassColoredName(name)
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
+                -- Add to session players so we don't spam the message
+                self.SessionPlayers[name] = false  -- false = not confirmed joined
+                BingoSettings.SessionPlayers = self.SessionPlayers
+            end
+        end
+    elseif IsInGroup() then
+        for i = 1, GetNumGroupMembers() - 1 do
+            local name = UnitName("party" .. i)
+            if name and not self.SessionPlayers[name] then
+                local coloredName = self:GetClassColoredName(name)
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
+                -- Add to session players so we don't spam the message
+                self.SessionPlayers[name] = false  -- false = not confirmed joined
+                BingoSettings.SessionPlayers = self.SessionPlayers
+            end
+        end
     end
 end
 
 function Bingo:SetSessionLocked(locked, lockedBy)
+    local wasAlreadyLocked = self.IsSessionLocked
+
     self.IsSessionLocked = locked
     self.SessionLockedBy = lockedBy
     self:UpdateShuffleButtonState()
 
-    -- Toggle lock/unlock button visibility for leader
+    -- Clear session players when ending a session
+    if not locked then
+        self:ClearSessionPlayers()
+    end
+
+    -- Show/hide session players panel for leader
+    if IS_SESSION_LEADER and self.SessionPlayersFrame then
+        if locked then
+            self.SessionPlayersFrame:Show()
+        else
+            self.SessionPlayersFrame:Hide()
+        end
+    end
+
+    -- Persist lock state to saved variables
+    BingoSettings.IsSessionLocked = locked
+    BingoSettings.SessionLockedBy = lockedBy
+
+    -- Toggle Start/End/Add Players button visibility for leader
     if IS_SESSION_LEADER then
         if locked then
-            if self.LockButton then self.LockButton:Hide() end
-            if self.UnlockButton then self.UnlockButton:Show() end
+            if self.StartButton then self.StartButton:Hide() end
+            if self.EndButton then self.EndButton:Show() end
+            if self.AddPlayersButton then self.AddPlayersButton:Show() end
         else
-            if self.UnlockButton then self.UnlockButton:Hide() end
-            if self.LockButton then self.LockButton:Show() end
+            if self.EndButton then self.EndButton:Hide() end
+            if self.AddPlayersButton then self.AddPlayersButton:Hide() end
+            if self.StartButton then self.StartButton:Show() end
+        end
+    else
+        -- Toggle Leave button visibility for followers
+        if locked then
+            if self.LeaveSessionButton then self.LeaveSessionButton:Show() end
+        else
+            if self.LeaveSessionButton then self.LeaveSessionButton:Hide() end
         end
     end
 
     if locked then
-        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session locked by " .. (lockedBy or "leader") .. ". Shuffling disabled.")
+        if wasAlreadyLocked then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Adding players to session.")
+        else
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session Started by " .. (lockedBy or "leader") .. ", Boards are locked!")
+        end
     else
-        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session unlocked. Shuffling enabled.")
+        print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session ended.")
     end
+end
+
+function Bingo:LeaveSession()
+    -- Send leave message to leader
+    if IsInGroup() then
+        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "LEAVE", "RAID")
+    end
+
+    -- Clear local lock state
+    self.IsSessionLocked = false
+    self.SessionLockedBy = nil
+    self:UpdateShuffleButtonState()
+
+    -- Persist and hide leave button
+    BingoSettings.IsSessionLocked = false
+    BingoSettings.SessionLockedBy = nil
+    if self.LeaveSessionButton then self.LeaveSessionButton:Hide() end
+
+    print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff You left the session.")
 end
 
 function Bingo:UpdateShuffleButtonState()

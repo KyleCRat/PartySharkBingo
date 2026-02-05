@@ -1,0 +1,11 @@
+## Interface: 120000
+## Version: 0.1.0
+## Title: <Party Shark> Bingo
+## Notes: Bingo for <Party Shark> Illidan, Built off of Bingo by Cold https://www.curseforge.com/wow/addons/bingo
+## Author: Cold, Yvairel
+
+## SavedVariables: BingoCards, BingoSettings
+
+Libs\serpent\serpent.lua
+
+PartySharkBingo.lua

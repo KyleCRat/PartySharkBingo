@@ -669,22 +669,21 @@ function Bingo:CreateButton(x, y, name)
 end
 
 function Bingo:CreateButtons()
-    local buttonCounter = 1
-    local xoffset = 15
-    local yoffset = -85
+    local buttonSize = 80
+    local startX = 15
+    local startY = -85
+    local buttonIndex = 1
 
-    for i = 1, 5 do
-        local xoff = xoffset
+    -- Create a 5x5 grid of bingo buttons
+    for row = 1, 5 do
+        for col = 1, 5 do
+            local x = startX + (col - 1) * buttonSize
+            local y = startY - (row - 1) * buttonSize
 
-        for i = 1, 5 do
-            self.BingoButtons[buttonCounter] = self:CreateButton(xoff, yoffset, "BingoButton" .. buttonCounter)
-            self.BingoButtons[buttonCounter].index = buttonCounter
-            xoff = xoff + 80
-            buttonCounter = buttonCounter + 1
+            self.BingoButtons[buttonIndex] = self:CreateButton(x, y, "BingoButton" .. buttonIndex)
+            self.BingoButtons[buttonIndex].index = buttonIndex
+            buttonIndex = buttonIndex + 1
         end
-
-        xoff = xoffset
-        yoffset = yoffset - 80
     end
 
     self.CreateButton = function() end
@@ -735,32 +734,12 @@ function Bingo:LoadBingoCard(cardName)
             end
 
             local cardIndex = 1
-            for i = 1, 12 do
-                self:LoadButton(cardName, i, bingoSpaces[cardIndex], true)
-                cardIndex = cardIndex + 1
+            for i = 1, 25 do
+                if i ~= 13 then
+                    self:LoadButton(cardName, i, bingoSpaces[cardIndex], true)
+                    cardIndex = cardIndex + 1
+                end
             end
-            for i = 14, 25 do
-                self:LoadButton(cardName, i, bingoSpaces[cardIndex], true)
-                cardIndex = cardIndex + 1
-            end
-
-            -- Create a table with numbers 1-24, one for each bingo card. Used when randomizing to keep track of cards
-            -- for i = 1, 24 do
-            --     bingoCardDraws[i] = i
-            -- end
-
-            -- Load button text and size and randomize button positions, we skip 13 because it's the center/free button
-            -- local randomCard
-            -- for i = 1, 12 do
-            --     randomCard = math.random(#bingoSpaces)
-            --     self:LoadButton(cardName, i, bingoSpaces[randomCard], true)
-            --     tremove(bingoSpaces, randomCard)
-            -- end
-            -- for i = 14, 25 do
-            --     randomCard = math.random(#bingoSpaces)
-            --     self:LoadButton(cardName, i, bingoSpaces[randomCard], true)
-            --     tremove(bingoSpaces, randomCard)
-            -- end
         end
 
         -- Load card title

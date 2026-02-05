@@ -783,55 +783,48 @@ function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
     end
 end
 
-function Bingo:CheckForBingo()
-    local offset
-
-    for i = 0, 4 do
-        -- Check for horizontal bingo
-        offset = 5 * i
-        if not (self.BingoButtons[1 + offset]:IsEnabled()
-                or self.BingoButtons[2 + offset]:IsEnabled()
-                or self.BingoButtons[3 + offset]:IsEnabled()
-                or self.BingoButtons[4 + offset]:IsEnabled()
-                or self.BingoButtons[5 + offset]:IsEnabled()) then
-            self.CurrentBingoCardBingo = true
-            self:AnnounceBingo({ 1 + offset, 2 + offset, 3 + offset, 4 + offset, 5 + offset })
-            return true
-            -- Check for vertical bingo
-        elseif not (self.BingoButtons[1 + i]:IsEnabled()
-                or self.BingoButtons[6 + i]:IsEnabled()
-                or self.BingoButtons[11 + i]:IsEnabled()
-                or self.BingoButtons[16 + i]:IsEnabled()
-                or self.BingoButtons[21 + i]:IsEnabled()) then
-            self.CurrentBingoCardBingo = true
-            self:AnnounceBingo({ 1 + i, 6 + i, 11 + i, 16 + i, 21 + i })
-            return true
+function Bingo:CheckLine(indices)
+    for _, index in ipairs(indices) do
+        if self.BingoButtons[index]:IsEnabled() then
+            return false
         end
     end
+    return true
+end
 
-    -- Check for diagonal bingo
-    if not (self.BingoButtons[1]:IsEnabled()
-            or self.BingoButtons[7]:IsEnabled()
-            or self.BingoButtons[13]:IsEnabled()
-            or self.BingoButtons[19]:IsEnabled()
-            or self.BingoButtons[25]:IsEnabled()) then
-        self.CurrentBingoCardBingo = true
-        self:AnnounceBingo({ 1, 7, 13, 19, 25 })
-        return true
-    elseif not (self.BingoButtons[5]:IsEnabled()
-            or self.BingoButtons[9]:IsEnabled()
-            or self.BingoButtons[13]:IsEnabled()
-            or self.BingoButtons[17]:IsEnabled()
-            or self.BingoButtons[21]:IsEnabled()) then
-        self.CurrentBingoCardBingo = true
-        self:AnnounceBingo({ 5, 9, 13, 17, 21 })
-        return true
+function Bingo:CheckForBingo()
+    local lines = {
+        -- Horizontal lines
+        {name = "Row 1", indices = {1, 2, 3, 4, 5}},
+        {name = "Row 2", indices = {6, 7, 8, 9, 10}},
+        {name = "Row 3", indices = {11, 12, 13, 14, 15}},
+        {name = "Row 4", indices = {16, 17, 18, 19, 20}},
+        {name = "Row 5", indices = {21, 22, 23, 24, 25}},
+        -- Vertical lines
+        {name = "Column 1", indices = {1, 6, 11, 16, 21}},
+        {name = "Column 2", indices = {2, 7, 12, 17, 22}},
+        {name = "Column 3", indices = {3, 8, 13, 18, 23}},
+        {name = "Column 4", indices = {4, 9, 14, 19, 24}},
+        {name = "Column 5", indices = {5, 10, 15, 20, 25}},
+        -- Diagonal lines
+        {name = "Diagonal tl to br", indices = {1, 7, 13, 19, 25}},
+        {name = "Diagonal tr to bl", indices = {5, 9, 13, 17, 21}},
+        -- Four corners
+        {name = "Four Corners", indices = {1, 5, 21, 25}},
+    }
+
+    for _, line in ipairs(lines) do
+        if self:CheckLine(line.indices) then
+            self.CurrentBingoCardBingo = true
+            self:AnnounceBingo(line.indices, line.name)
+            return true
+        end
     end
 
     return false
 end
 
-function Bingo:AnnounceBingo(winningIndices)
+function Bingo:AnnounceBingo(winningIndices, lineName)
     local cardTexts = {}
 
     for _, index in ipairs(winningIndices) do
@@ -844,7 +837,7 @@ function Bingo:AnnounceBingo(winningIndices)
     end
 
     local playerName = UnitName("player")
-    local message = playerName .. " got a bingo with: " .. table.concat(cardTexts, ", ") .. "!"
+    local message = playerName .. " got a bingo (" .. lineName .. ") with: " .. table.concat(cardTexts, ", ") .. "!"
 
     if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
         SendChatMessage(message, "INSTANCE_CHAT")

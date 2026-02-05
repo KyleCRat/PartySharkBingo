@@ -8,6 +8,16 @@ local SHOW_IMPORT_EXPORT_BUTTONS = false
 -- Addon message constants
 local ADDON_MSG_PREFIX = "PSBINGO"
 
+-- Helper to get full name with realm (always includes realm for consistency)
+local function GetFullUnitName(unit)
+    local name, realm = UnitName(unit)
+    if not name then return nil end
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+    return name .. "-" .. GetNormalizedRealmName()
+end
+
 -- Session leader is determined by character name
 local IS_SESSION_LEADER = (UnitName("player") == "Yvairel")
 
@@ -469,10 +479,10 @@ function Bingo:CreateFrames()
     else
         -- Lock indicator for followers (shown when session is locked)
         self.LockIndicator = self.BingoFrame:CreateFontString(nil, "OVERLAY")
-        self.LockIndicator:SetFont(FONT_PATH, 12, "OUTLINE")
-        self.LockIndicator:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y - 6)
-        self.LockIndicator:SetTextColor(1, 0.3, 0.3, 1)  -- Red color
-        self.LockIndicator:SetText("Locked")
+        self.LockIndicator:SetFont(FONT_PATH, 18, "OUTLINE")
+        self.LockIndicator:SetPoint("BOTTOM", self.BingoFrame, "TOP", 0, 4)
+        self.LockIndicator:SetTextColor(1, 0.82, 0, 1)  -- Gold color
+        self.LockIndicator:SetText("In session")
         self.LockIndicator:Hide()
         nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
@@ -959,21 +969,20 @@ function Bingo:SendLockCommand(locked)
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, "RAID")
 end
 
-function Bingo:GetClassColoredName(name)
+function Bingo:GetClassColoredName(fullName)
     -- Try to find the player in raid or party
     local unit
+
     if IsInRaid() then
         for i = 1, GetNumGroupMembers() do
-            local raidName = UnitName("raid" .. i)
-            if raidName == name then
+            if GetFullUnitName("raid" .. i) == fullName then
                 unit = "raid" .. i
                 break
             end
         end
     elseif IsInGroup() then
         for i = 1, GetNumGroupMembers() - 1 do
-            local partyName = UnitName("party" .. i)
-            if partyName == name then
+            if GetFullUnitName("party" .. i) == fullName then
                 unit = "party" .. i
                 break
             end
@@ -983,22 +992,22 @@ function Bingo:GetClassColoredName(name)
     if unit then
         local _, class = UnitClass(unit)
         if class then
-            local color = RAID_CLASS_COLORS[class]
+            local color = C_ClassColor.GetClassColor(class)
             if color then
-                return string.format("|cff%02x%02x%02x%s|r", color.r * 255, color.g * 255, color.b * 255, name)
+                return color:WrapTextInColorCode(fullName)
             end
         end
     end
 
-    return name
+    return fullName
 end
 
 function Bingo:HandleAddonMessage(message, sender)
-    -- Strip realm name from sender if present
-    local senderName = strsplit("-", sender)
+    -- sender already includes realm (e.g., "Player-Realm")
+    local senderFullName = sender
 
     if message == "LOCK" then
-        self:SetSessionLocked(true, senderName)
+        self:SetSessionLocked(true, senderFullName)
         -- Send JOIN response to leader (only if not the leader)
         if not IS_SESSION_LEADER then
             self:SendJoinMessage()
@@ -1006,13 +1015,13 @@ function Bingo:HandleAddonMessage(message, sender)
     elseif message == "UNLOCK" then
         self:SetSessionLocked(false, nil)
     elseif message == "JOIN" and IS_SESSION_LEADER then
-        local coloredName = self:GetClassColoredName(senderName)
+        local coloredName = self:GetClassColoredName(senderFullName)
         print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " joined the session.")
-        self:AddSessionPlayer(senderName)
+        self:AddSessionPlayer(senderFullName)
     elseif message == "LEAVE" and IS_SESSION_LEADER then
-        local coloredName = self:GetClassColoredName(senderName)
+        local coloredName = self:GetClassColoredName(senderFullName)
         print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " left the session.")
-        self:RemoveSessionPlayer(senderName)
+        self:RemoveSessionPlayer(senderFullName)
     end
 end
 
@@ -1103,23 +1112,23 @@ function Bingo:CheckForNewGroupMembers()
     -- Check all current group members against SessionPlayers
     if IsInRaid() then
         for i = 1, GetNumGroupMembers() do
-            local name = UnitName("raid" .. i)
-            if name and not self.SessionPlayers[name] then
-                local coloredName = self:GetClassColoredName(name)
+            local fullName = GetFullUnitName("raid" .. i)
+            if fullName and not self.SessionPlayers[fullName] then
+                local coloredName = self:GetClassColoredName(fullName)
                 print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
                 -- Add to session players so we don't spam the message
-                self.SessionPlayers[name] = false  -- false = not confirmed joined
+                self.SessionPlayers[fullName] = false  -- false = not confirmed joined
                 BingoSettings.SessionPlayers = self.SessionPlayers
             end
         end
     elseif IsInGroup() then
         for i = 1, GetNumGroupMembers() - 1 do
-            local name = UnitName("party" .. i)
-            if name and not self.SessionPlayers[name] then
-                local coloredName = self:GetClassColoredName(name)
+            local fullName = GetFullUnitName("party" .. i)
+            if fullName and not self.SessionPlayers[fullName] then
+                local coloredName = self:GetClassColoredName(fullName)
                 print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
                 -- Add to session players so we don't spam the message
-                self.SessionPlayers[name] = false  -- false = not confirmed joined
+                self.SessionPlayers[fullName] = false  -- false = not confirmed joined
                 BingoSettings.SessionPlayers = self.SessionPlayers
             end
         end
@@ -1212,7 +1221,7 @@ function Bingo:UpdateShuffleButtonState()
         -- Show lock indicator (for non-leaders)
         if self.LockIndicator then
             self.LockIndicator:Show()
-            self.LockIndicator:SetText("Locked by " .. (self.SessionLockedBy or "leader"))
+            self.LockIndicator:SetText("In session started by " .. (self.SessionLockedBy or "leader"))
         end
     else
         self.ShuffleButton:Enable()

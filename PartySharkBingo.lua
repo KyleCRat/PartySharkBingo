@@ -136,7 +136,7 @@ end
     7.  <Vod Review>
     8.  HR Requested
     9.  Shut up Grun
-    10. Rezy Get's Bullied
+    10. Rezy gets Bullied
     11. Rez Dissar
     12. Missed Consumes
     13. Addon Out of Date
@@ -174,7 +174,7 @@ function Bingo.LoadDefaultBingoCards()
             [8] = "HR Requested",
             Size8 = 14,
             [9] = "Shut up Grun",
-            [10] = "Rezy Get's Bullied",
+            [10] = "Rezy gets Bullied",
             [11] = "Rez Dissar",
             Size11 = 20,
             [12] = "Missed Consumes",

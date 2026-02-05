@@ -269,7 +269,7 @@ function Bingo:CreateFrames()
 
     -- Add close button to main frame
     self.BingoFrameCloseButton = CreateFrame("Button", "BingoFrameCloseButton", self.BingoFrame, "UIPanelCloseButton")
-    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -4, -4)
+    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -6, -6)
     self.BingoFrameCloseButton:SetScript("OnClick", function()
         self.BingoFrame:Hide()
     end)

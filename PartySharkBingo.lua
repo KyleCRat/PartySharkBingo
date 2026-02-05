@@ -231,7 +231,7 @@ function Bingo.EventHandler(_, event, ...)
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         -- Combat ended, restore frame if it was hidden during encounter
-        if Bingo.WasShownBeforeCombat then
+        if Bingo.WasShownBeforeCombat and not InCombatLockdown() then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
@@ -1242,7 +1242,7 @@ end
 
 function Bingo:LeaveSession()
     -- Send leave message to leader
-    if IsInGroup() then
+    if IsInGroup() and not InCombatLockdown() then
         C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "LEAVE", "RAID")
     end
 

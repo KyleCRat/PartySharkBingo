@@ -86,28 +86,27 @@ function Bingo.LoadDefaultBingoCards()
     }
 end
 
-function Bingo.EventHandler(_, event, ...)
-    local arg1 = ...
-
+function Bingo.EventHandler(_, event, addon_name)
     if event == "ENCOUNTER_START" then
-        if Bingo.BingoFrame:IsShown() then
-            Bingo.WasShownBeforeCombat = true
+        Bingo.WasShownBeforeCombat = Bingo.BingoFrame:IsShown()
+        if Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Hide()
-        else
+        end
+
+    elseif event == "ENCOUNTER_END" then
+        if Bingo.WasShownBeforeCombat and not InCombatLockdown() then
+            Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
-        return
-    end
 
-    if event == "ENCOUNTER_END" then
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        -- Combat ended, restore frame if it was hidden during encounter
         if Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
-        return
-    end
 
-    if ((event == "ADDON_LOADED") and (arg1 == Bingo.ADDON_NAME)) then
+    elseif event == "ADDON_LOADED" and addon_name == Bingo.ADDON_NAME then
         if not BingoSettings then
             Bingo.LoadDefaultSettings()
         else

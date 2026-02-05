@@ -774,8 +774,8 @@ function Bingo:CheckForBingo()
         {name = "Column 4", indices = {4, 9, 14, 19, 24}},
         {name = "Column 5", indices = {5, 10, 15, 20, 25}},
         -- Diagonal lines
-        {name = "Diagonal ╲ ", indices = {1, 7, 13, 19, 25}},
-        {name = "Diagonal ╱ ", indices = {5, 9, 13, 17, 21}},
+        {name = "Diagonal \\ ", indices = {1, 7, 13, 19, 25}},
+        {name = "Diagonal / ", indices = {5, 9, 13, 17, 21}},
         -- Four corners
         {name = "Four Corners", indices = {1, 5, 21, 25}},
     }

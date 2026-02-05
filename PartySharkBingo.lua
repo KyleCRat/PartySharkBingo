@@ -1,6 +1,7 @@
+local addonName, ns = ...
+
 local Bingo = {
-    ADDON_NAME = ...,
-    ADDON_NAMESPACE = select(2, ...),
+    ADDON_NAME = addonName,
     BingoButtons = {},
     DefaultBackdrop = {
         bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
@@ -10,14 +11,13 @@ local Bingo = {
     }
 }
 
+-- Export Bingo to namespace for other files
+ns.Bingo = Bingo
+
 function Bingo:Init()
     self.VERSION = C_AddOns.GetAddOnMetadata(self.ADDON_NAME, "Version")
     self.WasShownBeforeCombat = false
     self.currentCardName = nil
-
-    SlashCmdList[strupper(self.ADDON_NAME)] = self.SlashCmdHandler
-    SLASH_PARTYSHARKBINGO1 = "/psbingo"
-    SLASH_PARTYSHARKBINGO2 = "/psb"
 
     self:CreateFrames()
     self:CreateButtons()
@@ -33,6 +33,50 @@ function Bingo.LoadDefaultSettings()
     }
 end
 
+--[[
+    Bingo Card Format
+    =================
+
+    Required Fields:
+        Title           - Card title displayed at top (string)
+        [1] to [N]      - Bingo square text entries (need at least 24)
+
+    Optional Fields:
+        TitleSize       - Font size for title (default: 20)
+        FontSize        - Default font size for all squares (default: 10)
+        FreeSpace       - Text for center free space (default: "Free Space")
+        FreeSpaceSize   - Font size for free space (default: FontSize)
+        Size[N]         - Override font size for specific square N (e.g., Size7 = 14)
+
+    Current Squares:
+    ----------------
+    1.  Guess Who Died
+    2.  Game Crash
+    3.  Tech Support
+    4.  Clear Comms
+    5.  Rich People Talk
+    6.  Plane Delays Nash
+    7.  <Vod Review>
+    8.  HR Requested
+    9.  Shut up Grun
+    10. Rezy Get's Bullied
+    11. Rez Dissar
+    12. Missed Consumes
+    13. Addon Out of Date
+    14. Vibekiller Enters the Chat
+    15. Yuhbarrel Speaks at 2.5x
+    16. Bug Mentioned
+    17. Tenc Stalks
+    18. Muted
+    19. Raidlead Hijacked
+    20. Braainss' Vacation
+    21. Last Pull Magic
+    22. Substances Mentioned
+    23. Tenc 'Inspiring' Speech
+    24. Soak
+    25. Pull Jinxed
+    26. Don't Die to X; Dies to X
+]]
 function Bingo.LoadDefaultBingoCards()
     BingoCards = {
         Default = {
@@ -127,121 +171,6 @@ function Bingo.EventHandler(_, event, addon_name)
     end
 end
 
-function Bingo.SlashCmdHandler(message)
-    message = strtrim(message or "")
-
-    local splitMessage = {}
-    for s in string.gmatch(message, "%S+") do
-        splitMessage[#splitMessage + 1] = s
-    end
-
-    local cmd = strlower(splitMessage[1] or "")
-
-    if (cmd == "help") then
-        print("|cff00ccff#####|cffFFC125 " .. Bingo.ADDON_NAME .. "|cffffffff Help |cff00ccff#####")
-        print("|cffFFFFE0/bingo |cffffffff- Toggle the bingo card window.")
-        print("|cffFFFFE0/bingo|cffADFF2F version |cffffffff- Print the addon version.")
-        print("|cffFFFFE0/bingo|cffADFF2F show |cffffffff- Show the bingo card window.")
-        print("|cffFFFFE0/bingo|cffADFF2F hide |cffffffff- Hide the bingo card window.")
-        print("|cffFFFFE0/bingo|cffADFF2F resetcards |cffffffff- Reset all saved cards back to the default.")
-        print("|cffFFFFE0/bingo|cffADFF2F resetsettings |cffffffff- Reset all settings back to the default.")
-        print(
-            "|cffFFFFE0/bingo|cffADFF2F printversion |cffffffff- Enable/Disable printing the addon version on load. Default is disabled.")
-        print(
-            "|cffFFFFE0/bingo|cffADFF2F defaultcard |cff71C671<Card Name> |cffffffff- Sets the card that will be loaded by default.")
-        print(
-            "|cffFFFFE0/bingo|cffADFF2F scale |cff71C671<Number> |cffffffff- Scales the interface by the specified amount. Default is 1. Numbers only, decimals accepted.")
-        print("|cffFFFFE0/bingo|cffADFF2F list |cffffffff- List all the saved bingo cards.")
-        print(
-            "|cffFFFFE0/bingo|cffADFF2F load |cff71C671<Card Name> |cffffffff- Loads the specified card, the card name is case-sensitive.")
-    elseif (cmd == "load") then
-        if splitMessage[2] then
-            local i = 2
-            local cardName = ""
-
-            while splitMessage[i] do
-                cardName = cardName .. splitMessage[i] .. " "
-                i = i + 1
-            end
-
-            cardName = strtrim(cardName)
-
-            if Bingo:LoadBingoCard(cardName) then
-                Bingo.BingoFrame:Show()
-            else
-                print("|cffff0000Error!|cffffffff Failed to load |cffFFFFE0'" ..
-                    cardName ..
-                    "'|cffffffff, misspelled name |cffADFF2F(case-sensitive)|cffffffff or card does not exist.")
-            end
-        else
-            print(
-                "|cffff0000Error!|cffffffff You must specify the name |cffADFF2F(case-sensitive)|cffffffff of the card you want to load.|cff00ccff Example: |cffffffff'/bingo load Default' - |cffffff00Tip:|cffffffff To view cards: '/bingo list'")
-        end
-    elseif (cmd == "list") then
-        print("|cffFFC125Bingo cards:")
-        for i in pairs(BingoCards) do
-            print(" - " .. i)
-        end
-    elseif (cmd == "scale") then
-        if (splitMessage[2] and (splitMessage[2]:match("%d+"))) then
-            BingoSettings.Scale = tonumber(splitMessage[2])
-            Bingo.BingoFrame:SetScale(BingoSettings.Scale)
-            print("|cffFFC125Bingo setting: |cffFFFFE0'Scale'|cffffffff set to " .. splitMessage[2])
-        else
-            if splitMessage[2] then
-                print("|cffff0000Error!|cffffffff Invalid scale value |cffADFF2F(number)|cffffffff: |cffFFFFE0'" ..
-                    splitMessage[2] .. "'")
-            else
-                print(
-                    "|cffff0000Error!|cffffffff You must specify the scale value |cffADFF2F(number).|cff00ccff Example: |cffffffff '/bingo scale 1.5'")
-            end
-        end
-    elseif (cmd == "printversion") then
-        BingoSettings.PrintVersionOnLoad = not BingoSettings.PrintVersionOnLoad
-        if BingoSettings.PrintVersionOnLoad then
-            print("|cffFFC125Bingo setting: |cffFFFFE0'Print version on load'|cff00ff00 Enabled")
-        else
-            print("|cffFFC125Bingo setting: |cffFFFFE0'Print version on load'|cffff0000 Disabled")
-        end
-    elseif (cmd == "defaultcard") then
-        if splitMessage[2] then
-            if BingoCards[splitMessage[2]] then
-                BingoSettings.DefaultCard = splitMessage[2]
-                print("|cffFFC125Bingo setting: |cffFFFFE0'" .. splitMessage[2] .. "'|cffffffff set as default card")
-            else
-                print("|cffff0000Error!|cffffffff Failed to find |cffFFFFE0'" ..
-                    splitMessage[2] ..
-                    "'|cffffffff, misspelled name |cffADFF2F(case-sensitive)|cffffffff or card does not exist.")
-            end
-        else
-            print(
-                "|cffff0000Error!|cffffffff You must specify the name |cffADFF2F(case-sensitive)|cffffffff of the card you want to set as default.|cff00ccff Example: |cffffffff'/bingo defaultcard Default' - |cffffff00Tip:|cffffffff To view cards: '/bingo list'")
-        end
-    elseif (cmd == "resetcards") then
-        Bingo.LoadDefaultBingoCards()
-        print("|cffff6060Bingo cards have been reset.")
-    elseif (cmd == "resetsettings") then
-        Bingo.LoadDefaultSettings()
-        Bingo.BingoFrame:SetScale(BingoSettings.Scale)
-        print("|cffff6060Bingo settings have been reset.")
-    elseif (cmd == "show") then
-        Bingo.BingoFrame:Show()
-    elseif (cmd == "hide") then
-        Bingo.BingoFrame:Hide()
-    elseif (cmd == "version") then
-        print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff version: " .. Bingo.VERSION)
-    elseif (cmd == "") then
-        if Bingo.BingoFrame:IsShown() then
-            Bingo.BingoFrame:Hide()
-        else
-            Bingo.BingoFrame:Show()
-        end
-    else
-        print("|cffff0000Error!|cffffffff Invalid command |cffFFFFE0'" ..
-            message .. "'|cffffffff. |cffffff00Tip:|cffffffff Use '/bingo help' to view a list of commands.")
-    end
-end
-
 function Bingo:CreateFrames()
     -- Create main bingo frame aka the game frame
     self.BingoFrame = CreateFrame("Frame", "BingoFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
@@ -254,6 +183,7 @@ function Bingo:CreateFrames()
     self.BingoFrame:RegisterEvent("ADDON_LOADED")
     self.BingoFrame:RegisterEvent("ENCOUNTER_START")
     self.BingoFrame:RegisterEvent("ENCOUNTER_END")
+    self.BingoFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 
     -- Customize main frame
@@ -389,7 +319,7 @@ function Bingo:CreateFrames()
     self.ImportButton:SetText("Export")
     self.ImportButton:SetScript("OnClick", function()
         if self.CurrentBingoCard then
-            self.BingoEditBox:SetText(Bingo.ADDON_NAMESPACE.serpent.block(BingoCards[self.CurrentBingoCard],
+            self.BingoEditBox:SetText(ns.serpent.block(BingoCards[self.CurrentBingoCard],
                 { sparse = true, comment = false }))
             self.BingoEditBox:HighlightText()
             self.BingoSaveButton:Hide()
@@ -482,7 +412,7 @@ function Bingo:CreateFrames()
         local ok, card
 
         if (string.find(Bingo.BingoEditBox:GetText(), "{") and string.find(Bingo.BingoEditBox:GetText(), "}")) then
-            ok, card = Bingo.ADDON_NAMESPACE.serpent.load(Bingo.BingoEditBox:GetText())
+            ok, card = ns.serpent.load(Bingo.BingoEditBox:GetText())
         end
 
         if ok then

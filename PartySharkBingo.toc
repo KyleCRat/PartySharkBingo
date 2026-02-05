@@ -9,3 +9,4 @@
 Libs\serpent\serpent.lua
 
 PartySharkBingo.lua
+SlashCommands.lua

@@ -222,7 +222,7 @@ function Bingo:CreateFrames()
             print("|cffff0000Error!|cffffffff Invalid card ID |cffADFF2F(number, between 1-25)|cffffffff: |cffFFFFE0'" ..
                 self.EditBox:GetText() .. "'")
         else
-            Bingo.BingoButtons[cardID]:Enable()
+            Bingo:SetButtonChecked(Bingo.BingoButtons[cardID], false)
             Bingo.CurrentBingoCardBingo = Bingo:CheckForBingo()
         end
     end
@@ -536,9 +536,11 @@ end
 
 function Bingo:ResetBoard()
     for _, b in pairs(self.BingoButtons) do
-        b:Enable()
+        self:SetButtonChecked(b, false)
     end
 
+    -- Center free space is always checked and disabled
+    self:SetButtonChecked(self.BingoButtons[13], true)
     self.BingoButtons[13]:Disable()
 
     self:RemoveSavedBingoCard(self.currentCardName)
@@ -552,7 +554,7 @@ function Bingo:SaveBingoCard(cardName, name, index)
         for i, button in pairs(self.BingoButtons) do
             persistedBoard[i] = {}
             persistedBoard[i]['name'] = button.name
-            persistedBoard[i]['enabled'] = button:IsEnabled()
+            persistedBoard[i]['enabled'] = not button.isChecked
         end
 
         BingoCards[cardName]['persisted'] = persistedBoard
@@ -565,16 +567,29 @@ function Bingo:RemoveSavedBingoCard(cardName)
     BingoCards[cardName]['persisted'] = nil
 end
 
+function Bingo:SetButtonChecked(button, checked)
+    button.isChecked = checked
+    if checked then
+        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonDisabled.tga")
+    else
+        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
+    end
+end
+
+function Bingo:IsButtonChecked(button)
+    return button.isChecked
+end
+
 function Bingo:CreateButton(x, y, name)
     local bingoButton
 
     bingoButton = CreateFrame("Button", name, self.BingoFrame, "UIPanelButtonTemplate")
     bingoButton:SetSize(80, 80)
     bingoButton:SetPoint("TOPLEFT", x, y)
+    bingoButton.isChecked = false
 
     bingoButton:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
     bingoButton:SetPushedTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonPushed.tga")
-    bingoButton:SetDisabledTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonDisabled.tga")
     bingoButton:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
     bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
 
@@ -583,12 +598,17 @@ function Bingo:CreateButton(x, y, name)
     bingoButton.text:SetPoint("TOPLEFT", 5, -5)
     bingoButton.text:SetPoint("BOTTOMRIGHT", -5, 5)
 
-    bingoButton:SetScript("OnClick", function()
-        bingoButton:Disable()
-        Bingo:SaveBingoCard(bingoButton.cardName, bingoButton.name, bingoButton.index)
-        if not self.CurrentBingoCardBingo then
-            if self:CheckForBingo() then
-                StaticPopup_Show("BINGO_WIN_DIALOG")
+    bingoButton:SetScript("OnClick", function(self, button)
+        if bingoButton.isChecked then
+            Bingo:SetButtonChecked(bingoButton, false)
+            Bingo.CurrentBingoCardBingo = Bingo:CheckForBingo()
+        else
+            Bingo:SetButtonChecked(bingoButton, true)
+            Bingo:SaveBingoCard(bingoButton.cardName, bingoButton.name, bingoButton.index)
+            if not Bingo.CurrentBingoCardBingo then
+                if Bingo:CheckForBingo() then
+                    StaticPopup_Show("BINGO_WIN_DIALOG")
+                end
             end
         end
     end)
@@ -679,6 +699,7 @@ function Bingo:LoadBingoCard(cardName)
         self.BingoButtons[13].text:SetFont("Fonts\\FRIZQT__.TTF",
             (BingoCards[cardName]["FreeSpaceSize"] or BingoCards[cardName]["Size25"] or BingoCards[cardName]["FontSize"] or 10),
             "OUTLINE")
+        self:SetButtonChecked(self.BingoButtons[13], true)
         self.BingoButtons[13]:Disable()
 
         self.CurrentBingoCard = cardName
@@ -704,16 +725,12 @@ function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
     self.BingoButtons[buttonID].text:SetText(text)
     self.BingoButtons[buttonID].text:SetFont("Fonts\\FRIZQT__.TTF",
         (BingoCards[cardName]["Size" .. cardID] or BingoCards[cardName]["FontSize"] or 10), "OUTLINE")
-    if enabled then
-        self.BingoButtons[buttonID]:Enable()
-    else
-        self.BingoButtons[buttonID]:Disable()
-    end
+    self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
 end
 
 function Bingo:CheckLine(indices)
     for _, index in ipairs(indices) do
-        if self.BingoButtons[index]:IsEnabled() then
+        if not self.BingoButtons[index].isChecked then
             return false
         end
     end

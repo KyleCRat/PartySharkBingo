@@ -390,6 +390,20 @@ function Bingo:CreateFrames()
         end
     }
 
+    -- Create confirmation popup for leader shuffle all during session
+    StaticPopupDialogs["BINGO_SHUFFLE_ALL_DIALOG"] = {
+        text = "This will reset and shuffle everyone's bingo boards in the session. Are you sure?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        enterClicksFirstButton = true,
+        OnAccept = function()
+            Bingo:ShuffleAllBoards()
+        end
+    }
+
     -- Create toolbar buttons with dynamic positioning
     local BUTTON_WIDTH = 90
     local BUTTON_HEIGHT = 28
@@ -447,9 +461,19 @@ function Bingo:CreateFrames()
     self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
     self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ShuffleButton:SetScript("OnClick", function()
+        if InCombatLockdown() then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot shuffle during combat.")
+            return
+        end
+
         -- Check if session is locked
         if self.IsSessionLocked then
-            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 Session is locked. Cannot shuffle.")
+            if IS_SESSION_LEADER then
+                -- Leader can shuffle everyone's boards during a session
+                StaticPopup_Show("BINGO_SHUFFLE_ALL_DIALOG")
+            else
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 Session is locked. Cannot shuffle.")
+            end
             return
         end
 
@@ -1097,6 +1121,16 @@ function Bingo:HandleAddonMessage(message, sender)
             -- Only announce "not in session" if they weren't previously in it
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
         end
+    elseif message == "SHUFFLE" then
+        -- Leader has requested all boards be shuffled
+        self:LoadDefaultBingoCards()
+        self:ResetBoard()
+        self:LoadBingoCard(self.CurrentBingoCard)
+        if IS_SESSION_LEADER then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Shuffled all boards in the session.")
+        else
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Your board has been shuffled by the session leader.")
+        end
     end
 end
 
@@ -1113,6 +1147,16 @@ end
 function Bingo:SendPingMessage()
     if not IsInGroup() then return end
     C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "PING", "RAID")
+end
+
+function Bingo:SendShuffleMessage()
+    if not IsInGroup() then return end
+    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "SHUFFLE", "RAID")
+end
+
+function Bingo:ShuffleAllBoards()
+    -- Send shuffle message to everyone (including self)
+    self:SendShuffleMessage()
 end
 
 function Bingo:AddSessionPlayer(name)
@@ -1310,9 +1354,17 @@ function Bingo:UpdateShuffleButtonState()
     if not self.ShuffleButton then return end
 
     if self.IsSessionLocked then
-        self.ShuffleButton:Disable()
-        self.ShuffleButton:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
-        self.ShuffleButton.text:SetTextColor(0.5, 0.5, 0.5, 1)
+        -- Leader can still shuffle during a session (shuffles everyone's boards)
+        if IS_SESSION_LEADER then
+            self.ShuffleButton:Enable()
+            self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+            self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)
+            self.ShuffleButton.text:SetText("Shuffle All")
+        else
+            self.ShuffleButton:Disable()
+            self.ShuffleButton:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+            self.ShuffleButton.text:SetTextColor(0.5, 0.5, 0.5, 1)
+        end
 
         -- Show lock indicator (for non-leaders)
         if self.LockIndicator then
@@ -1320,6 +1372,7 @@ function Bingo:UpdateShuffleButtonState()
             self.LockIndicator:SetText("In session started by " .. (self.SessionLockedBy or "leader"))
         end
     else
+        self.ShuffleButton.text:SetText("Shuffle")
         self.ShuffleButton:Enable()
         self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
         self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)

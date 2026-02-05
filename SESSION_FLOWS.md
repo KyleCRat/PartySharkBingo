@@ -59,10 +59,20 @@ This document describes all possible session state scenarios and how the addon h
 |---------|--------|---------|
 | `LOCK` | Leader | Start session or re-add players |
 | `UNLOCK` | Leader | End session |
+| `SHUFFLE` | Leader | Reset and shuffle all followers' boards |
 | `JOIN` | Follower | Confirm participation in session |
 | `LEAVE` | Follower | Leave session voluntarily |
 | `NOSESSION` | Follower | Report not in a session |
 | `PING` | Leader | Request status from all followers |
+
+## Shuffle Scenarios
+
+| # | Scenario | State | Action | Expected Behavior | Status |
+|---|----------|-------|--------|-------------------|--------|
+| S1 | Leader shuffles during session | Locked | Clicks "Shuffle" | Shows confirmation, shuffles own board, sends `SHUFFLE` to followers | ✅ OK |
+| S2 | Follower receives SHUFFLE | Locked | Leader sends `SHUFFLE` | Resets and shuffles board, shows message | ✅ OK |
+| S3 | Follower tries to shuffle during session | Locked | Clicks "Shuffle" | Blocked (button disabled) | ✅ OK |
+| S4 | Leader shuffles outside session | Unlocked | Clicks "Shuffle" | Normal shuffle (local only, with confirmation if squares checked) | ✅ OK |
 
 ## Notes
 

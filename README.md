@@ -1,6 +1,6 @@
 # <Party Shark> Bingo
 
-Bingo specifically for the guild <Party Shark>, this addon will not be updated or maintained for those outside. 
+Bingo specifically for the guild `<Party Shark> Stormrage`, this addon will not be updated or maintained for anything other than this team. 
 
 There is no technical reason why you couldn't use this, but the leader role is locked to my character name atm. Will update to be more generic if I'm feeling up to it one day. 
 

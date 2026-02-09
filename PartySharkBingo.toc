@@ -2,7 +2,7 @@
 ## Version: 12.0.1-1
 ## Title: <Party Shark> Bingo
 ## Notes: Bingo for <Party Shark> Illidan, Built off of Bingo by Cold https://www.curseforge.com/wow/addons/bingo
-## Author: Cold, Yvairel
+## Author: Yvairel, Cold-1
 ## IconTexture: Interface\AddOns\PartySharkBingo\icon.tga
 
 ## SavedVariables: BingoCards, BingoSettings

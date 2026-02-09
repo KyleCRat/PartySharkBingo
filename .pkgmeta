@@ -1,0 +1,19 @@
+package-as: PartySharkBingo
+
+externals:
+    Libs/LibStub:
+        url: https://repos.wowace.com/wow/ace3/trunk/LibStub
+        tag: latest
+    Libs/CallbackHandler-1.0:
+        url: https://repos.wowace.com/wow/ace3/trunk/CallbackHandler-1.0
+        tag: latest
+    Libs/serpent:
+        url: https://github.com/pkulchenko/serpent
+        tag: latest
+
+enable-nolib-creation: yes
+
+ignore:
+    - .pkgmeta
+    - .git
+    - "*.png"

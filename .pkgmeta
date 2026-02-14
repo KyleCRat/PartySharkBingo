@@ -1,8 +1,8 @@
 package-as: PartySharkBingo
 
 manual-changelog:
-  filename: CHANGELOG.md
-  markup-type: markdown
+    filename: CHANGELOG.md
+    markup-type: markdown
 
 externals:
     Libs/LibStub:

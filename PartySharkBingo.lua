@@ -137,7 +137,7 @@ function Bingo.LoadDefaultBingoCards()
             FreeSpaceSize = 26,
             [1]  = { value = "Soak",                       size = 24 },
             [2]  = { value = "Muted",                      size = 24 },
-            [3]  = { value = "Doooomin" },
+            [3]  = { value = "Doooomin",                   size = 16 },
             [4]  = { value = "Game Crash",                 size = 16 },
             [5]  = { value = "Clear Comms" },
             [6]  = { value = "Pull Jinxed" },

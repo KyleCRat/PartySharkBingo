@@ -116,43 +116,16 @@ end
 
     Required Fields:
         Title           - Card title displayed at top (string)
-        [1] to [N]      - Bingo square text entries (need at least 24)
+        [1] to [N]      - Bingo square entries (need at least 24), each a table:
+                          { value = "Text", size = 14 }
+                          value (required) - text shown on the square
+                          size  (optional) - font size override for this square
 
     Optional Fields:
         TitleSize       - Font size for title (default: 20)
         FontSize        - Default font size for all squares (default: 10)
         FreeSpace       - Text for center free space (default: "Free Space")
         FreeSpaceSize   - Font size for free space (default: FontSize)
-        Size[N]         - Override font size for specific square N (e.g., Size7 = 14)
-
-    Current Squares:
-    ----------------
-    1.  Guess Who Died
-    2.  Game Crash
-    3.  Tech Support
-    4.  Clear Comms
-    5.  Rich People Talk
-    6.  Plane Delays Nash
-    7.  <Vod Review>
-    8.  HR Requested
-    9.  Shut up Grun
-    10. Rezy gets Bullied
-    11. Rez Dissar
-    12. Missed Consumes
-    13. Addon Out of Date
-    14. Vibekiller Enters the Chat
-    15. Yuhbarrel Speaks at 2.5x
-    16. Bug Mentioned
-    17. Tenc Stalks
-    18. Muted
-    19. Raidlead Hijacked
-    20. Braainss' Vacation
-    21. Last Pull Magic
-    22. Substances Mentioned
-    23. Tenc 'Inspiring' Speech
-    24. Soak
-    25. Pull Jinxed
-    26. Don't Die to X; Dies to X
 ]]
 function Bingo.LoadDefaultBingoCards()
     BingoCards = {
@@ -162,47 +135,42 @@ function Bingo.LoadDefaultBingoCards()
             FontSize = 18,
             FreeSpace = "Free",
             FreeSpaceSize = 26,
-            [1] = "Guess Who Died",
-            [2] = "Game Crash",
-            Size2 = 16,
-            [3] = "Tech Support",
-            [4] = "Clear Comms",
-            [5] = "Rich People Talk",
-            [6] = "Plane Delays Nash",
-            [7] = "<Vod Review>",
-            Size7 = 14,
-            [8] = "HR Requested",
-            Size8 = 14,
-            [9] = "Shut up Grun",
-            [10] = "Rezy gets Bullied",
-            [11] = "Rez Dissar",
-            Size11 = 20,
-            [12] = "Missed Consumes",
-            Size12 = 13,
-            [13] = "Addon Out of Date",
-            [14] = "Vibekiller Enters the Chat",
-            Size14 = 14,
-            [15] = "Yuhbarrel Speaks at 2.5x",
-            Size15 = 13,
-            [16] = "Bug Mentioned",
-            Size16 = 12,
-            [17] = "Tenc Stalks",
-            [18] = "Muted",
-            Size18 = 24,
-            [19] = "Raidlead Hijacked",
-            Size19 = 14,
-            [20] = "Braainss' Vacation",
-            Size20 = 14,
-            [21] = "Last Pull Magic",
-            [22] = "Substances Mentioned",
-            Size22 = 12,
-            [23] = "Tenc 'Inspiring' Speech",
-            Size23 = 14,
-            [24] = "Soak",
-            Size24 = 24,
-            [25] = "Pull Jinxed",
-            [26] = "Don't Die to X; Dies to X",
-            Size26 = 14,
+            [1]  = { value = "Soak",                       size = 24 },
+            [2]  = { value = "Muted",                      size = 24 },
+            [3]  = { value = "Doooomin" },
+            [4]  = { value = "Game Crash",                 size = 16 },
+            [5]  = { value = "Clear Comms" },
+            [6]  = { value = "Pull Jinxed" },
+            [7]  = { value = "<Vod Review>",               size = 14 },
+            [8]  = { value = "HR Requested",               size = 14 },
+            [9]  = { value = "Tech Support" },
+            [10] = { value = "Bug Mentioned",              size = 12 },
+            [11] = { value = "Blue Bar Boss" },
+            [12] = { value = "Repair Please" },
+            [13] = { value = "Missed Consumes",            size = 13 },
+            [14] = { value = "Last Pull Magic" },
+            [15] = { value = "Healer Rez Race" },
+            [16] = { value = "Name Said Wrong" },
+            [17] = { value = "Rich People Talk" },
+            [18] = { value = "Skill Not on Bar" },
+            [19] = { value = "Addon Out of Date" },
+            [20] = { value = "Raidlead Hijacked",          size = 14 },
+            [21] = { value = "Mage Table Please" },
+            [22] = { value = "Substances Mentioned",       size = 12 },
+            [23] = { value = "Don't Die to X; Dies to X",  size = 14 },
+            [24] = { value = "Rez Dissar",                 size = 20, players = { "Dìssar" }},
+            [25] = { value = "Tenc Stalks",                size = 20, players = { "Tencarus", "Tencdh" }},
+            [26] = { value = "Shut Up Grun",               size = 19, players = { "Grunmore" }},
+            [27] = { value = "PooPoo Speaks",              size = 18, players = { "LegitPooPoo", "Legitsozzled" }},
+            [28] = { value = "Guess Who Died",             size = 18, players = { "Rezy" }},
+            [29] = { value = "Rezy Gets Bullied",          size = 17, players = { "Rezy" }},
+            [30] = { value = "Plane Delays Nash",          size = 17, players = { "Nashou" }},
+            [31] = { value = "Braainss' Vacation",         size = 15, players = { "Braainss" }},
+            [32] = { value = "Keize Wasn't Healed",        size = 15, players = { "Keize" }},
+            [33] = { value = "Braainss' Jeeves, Eww",      size = 15, players = { "Braainss" }},
+            [34] = { value = "Tenc 'Inspiring' Speech",    size = 14, players = { "Tencarus", "Tencdh" }},
+            [35] = { value = "Yuhbarrel Speaks at 2.5x",   size = 13, players = { "Yvairel", "Yvauras" }},
+            [36] = { value = "Vibekiller Enters the Chat", size = 13, players = { "Tencarus", "Tencdh" }},
         }
     }
 end
@@ -951,19 +919,15 @@ function Bingo:LoadBingoCard(cardName)
 end
 
 function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
-    local text = BingoCards[cardName][cardID]
-    if (text and (type(text) == "string")) then
-        text = text
-    else
-        text = cardID
-    end
+    local entry = BingoCards[cardName][cardID]
+    local text = entry and entry.value or cardID
+    local size = (entry and entry.size) or BingoCards[cardName]["FontSize"] or 10
 
     self.BingoButtons[buttonID].cardName = cardName
     self.BingoButtons[buttonID].name = text
 
     self.BingoButtons[buttonID].text:SetText(text)
-    self.BingoButtons[buttonID].text:SetFont(FONT_PATH,
-        (BingoCards[cardName]["Size" .. cardID] or BingoCards[cardName]["FontSize"] or 10), "OUTLINE")
+    self.BingoButtons[buttonID].text:SetFont(FONT_PATH, size, "OUTLINE")
     self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
 end
 

@@ -18,6 +18,46 @@ local function GetFullUnitName(unit)
     return name .. "-" .. GetNormalizedRealmName()
 end
 
+-- Check if any player name from a list is in the current group
+local function IsAnyPlayerInGroup(players)
+    if not IsInGroup() then
+        return true
+    end
+
+    local playerName = UnitName("player")
+    for _, name in ipairs(players) do
+        if name == playerName then
+            return true
+        end
+    end
+
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local memberName = UnitName("raid" .. i)
+            if memberName then
+                for _, name in ipairs(players) do
+                    if name == memberName then
+                        return true
+                    end
+                end
+            end
+        end
+    else
+        for i = 1, GetNumGroupMembers() - 1 do
+            local memberName = UnitName("party" .. i)
+            if memberName then
+                for _, name in ipairs(players) do
+                    if name == memberName then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 -- Session leader is determined by character name
 local IS_SESSION_LEADER = (UnitName("player") == "Yvairel")
 
@@ -870,9 +910,12 @@ function Bingo:LoadBingoCard(cardName)
             local bingoSpaces = {}
 
             -- For each index of type number ([x] = y), add to our list of possible draws
-            for index, _ in pairs(BingoCards[cardName]) do
+            -- Skip player-specific tiles if none of their players are in the group
+            for index, entry in pairs(BingoCards[cardName]) do
                 if type(index) == "number" then
-                    tinsert(bingoSpaces, index)
+                    if not entry.players or IsAnyPlayerInGroup(entry.players) then
+                        tinsert(bingoSpaces, index)
+                    end
                 end
             end
 

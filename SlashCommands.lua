@@ -46,7 +46,7 @@ function Commands.load(args)
     local cardName = GetRemainingArgs(args, 2)
 
     if Bingo:LoadBingoCard(cardName) then
-        if not InCombatLockdown() then
+        if not Bingo.InEncounter then
             Bingo.BingoFrame:Show()
         end
     else
@@ -108,16 +108,16 @@ function Commands.resetsettings()
 end
 
 function Commands.show()
-    if InCombatLockdown() then
-        print("|cffff0000Error!|cffffffff Cannot show bingo frame during combat.")
+    if Bingo.InEncounter then
+        print("|cffff0000Error!|cffffffff Cannot show bingo frame during an encounter.")
         return
     end
     Bingo.BingoFrame:Show()
 end
 
 function Commands.hide()
-    if InCombatLockdown() then
-        print("|cffff0000Error!|cffffffff Cannot hide bingo frame during combat.")
+    if Bingo.InEncounter then
+        print("|cffff0000Error!|cffffffff Cannot hide bingo frame during an encounter.")
         return
     end
     Bingo.BingoFrame:Hide()
@@ -134,8 +134,8 @@ local function SlashCmdHandler(message)
 
     if cmd == "" then
         -- Toggle visibility
-        if InCombatLockdown() then
-            print("|cffff0000Error!|cffffffff Cannot toggle bingo frame during combat.")
+        if Bingo.InEncounter then
+            print("|cffff0000Error!|cffffffff Cannot toggle bingo frame during an encounter.")
             return
         end
 

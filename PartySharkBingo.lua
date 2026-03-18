@@ -232,20 +232,23 @@ function Bingo.EventHandler(_, event, ...)
 
     local addon_name = ...
     if event == "ENCOUNTER_START" then
+        Bingo.InEncounter = true
         Bingo.WasShownBeforeCombat = Bingo.BingoFrame:IsShown()
         if Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Hide()
         end
 
     elseif event == "ENCOUNTER_END" then
-        if Bingo.WasShownBeforeCombat and not InCombatLockdown() then
+        Bingo.InEncounter = false
+        if Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         -- Combat ended, restore frame if it was hidden during encounter
-        if Bingo.WasShownBeforeCombat and not InCombatLockdown() then
+        Bingo.InEncounter = false
+        if Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
@@ -475,8 +478,8 @@ function Bingo:CreateFrames()
     self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
     self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.ShuffleButton:SetScript("OnClick", function()
-        if InCombatLockdown() then
-            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot shuffle during combat.")
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot shuffle during an encounter.")
             return
         end
 
@@ -509,8 +512,8 @@ function Bingo:CreateFrames()
         self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.StartButton:Hide()
         self.StartButton:SetScript("OnClick", function()
-            if InCombatLockdown() then
-                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot start session during combat.")
+            if self.InEncounter then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot start session during an encounter.")
                 return
             end
             self:SendLockCommand(true)
@@ -522,8 +525,8 @@ function Bingo:CreateFrames()
         self.AddPlayersButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.AddPlayersButton:Hide()
         self.AddPlayersButton:SetScript("OnClick", function()
-            if InCombatLockdown() then
-                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot add players during combat.")
+            if self.InEncounter then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot add players during an encounter.")
                 return
             end
             self:SendLockCommand(true)
@@ -535,8 +538,8 @@ function Bingo:CreateFrames()
         self.EndButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
         self.EndButton:Hide()
         self.EndButton:SetScript("OnClick", function()
-            if InCombatLockdown() then
-                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot end session during combat.")
+            if self.InEncounter then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot end session during an encounter.")
                 return
             end
             if IsInGroup() then
@@ -574,8 +577,8 @@ function Bingo:CreateFrames()
         self.LeaveSessionButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
         self.LeaveSessionButton:Hide()
         self.LeaveSessionButton:SetScript("OnClick", function()
-            if InCombatLockdown() then
-                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot leave session during combat.")
+            if self.InEncounter then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot leave session during an encounter.")
                 return
             end
             StaticPopup_Show("BINGO_LEAVE_SESSION_DIALOG")
@@ -796,6 +799,7 @@ function Bingo:SaveBingoCard(cardName, name, index)
         for i, button in pairs(self.BingoButtons) do
             persistedBoard[i] = {}
             persistedBoard[i]['name'] = button.name
+            persistedBoard[i]['size'] = button.size
             persistedBoard[i]['enabled'] = not button.isChecked
         end
 
@@ -903,11 +907,13 @@ function Bingo:LoadBingoCard(cardName)
                         self:LoadBingoCard(cardName)
                         print('Saved Bingo Card was corrupt, resetting.')
                     else
+                        local persisted = BingoCards[cardName]['persisted'][i]
                         self:LoadButton(
                             cardName,
                             i,
-                            BingoCards[cardName]['persisted'][i]['name'],
-                            BingoCards[cardName]['persisted'][i]['enabled']
+                            persisted['name'],
+                            persisted['enabled'],
+                            persisted['size']
                         )
                     end
                 end
@@ -967,13 +973,14 @@ function Bingo:LoadBingoCard(cardName)
     end
 end
 
-function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
+function Bingo:LoadButton(cardName, buttonID, cardID, enabled, persistedSize)
     local entry = BingoCards[cardName][cardID]
     local text = entry and entry.value or cardID
-    local size = (entry and entry.size) or BingoCards[cardName]["FontSize"] or 10
+    local size = persistedSize or (entry and entry.size) or BingoCards[cardName]["FontSize"] or 10
 
     self.BingoButtons[buttonID].cardName = cardName
     self.BingoButtons[buttonID].name = text
+    self.BingoButtons[buttonID].size = size
 
     self.BingoButtons[buttonID].text:SetText(text)
     self.BingoButtons[buttonID].text:SetFont(FONT_PATH, size, "OUTLINE")

@@ -247,9 +247,8 @@ function Bingo.EventHandler(_, event, ...)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
-        -- Combat ended, restore frame if it was hidden during encounter
-        Bingo.InEncounter = false
-        if Bingo.WasShownBeforeCombat then
+        -- Combat ended outside an encounter (trash), restore frame
+        if not Bingo.InEncounter and Bingo.WasShownBeforeCombat then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end

@@ -2,15 +2,11 @@
 
 All notable changes to Party Shark Bingo will be documented in this file.
 
+## [12.0.1-7] - 2026-03-26
+
+- Try to fix frame not opening back up after encounters
+- Update tiles
+
 ## [12.0.1-6] - 2026-03-19
 
 - Minor Fix
-
-## [12.0.1-5] - 2026-03-19
-
-- Added more Tiles
-
-## [12.0.1-4] - 2026-03-17
-
-- Fix persisted tiles not having font sizes saved.
-- Allow opening and closing in combat, but not in encounters.

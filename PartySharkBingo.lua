@@ -244,14 +244,12 @@ function Bingo.EventHandler(_, event, ...)
 
     elseif event == "ENCOUNTER_END" then
         Bingo.InEncounter = false
-        if Bingo.WasShownBeforeCombat then
-            Bingo.BingoFrame:Show()
-            Bingo.WasShownBeforeCombat = false
-        end
+        -- Don't restore here; PLAYER_REGEN_ENABLED handles it once combat fully drops
 
-    elseif event == "PLAYER_REGEN_ENABLED" then
-        -- Combat ended outside an encounter (trash), restore frame
-        if not Bingo.InEncounter and Bingo.WasShownBeforeCombat then
+    elseif event == "PLAYER_REGEN_ENABLED"
+        or event == "PLAYER_ALIVE"
+        or event == "PLAYER_UNGHOST" then
+        if Bingo.WasShownBeforeCombat and not Bingo.InEncounter then
             Bingo.BingoFrame:Show()
             Bingo.WasShownBeforeCombat = false
         end
@@ -318,6 +316,8 @@ function Bingo:CreateFrames()
     self.BingoFrame:RegisterEvent("ENCOUNTER_START")
     self.BingoFrame:RegisterEvent("ENCOUNTER_END")
     self.BingoFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self.BingoFrame:RegisterEvent("PLAYER_ALIVE")
+    self.BingoFrame:RegisterEvent("PLAYER_UNGHOST")
     self.BingoFrame:RegisterEvent("CHAT_MSG_ADDON")
     self.BingoFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 

@@ -175,18 +175,18 @@ function Bingo.LoadDefaultBingoCards()
             FontSize = 18,
             FreeSpace = "Free",
             FreeSpaceSize = 26,
-            [1] = { value = "Soak",                       size = 24 },
-            [2] = { value = "Muted",                      size = 24 },
-            [3] = { value = "REPAIR",                     size = 23 },
-            [4] = { value = "Doooomin",                   size = 16 },
-            [5] = { value = "Corruption",                 size = 12 },
-            [6] = { value = "Early Pull",                 size = 18 },
-            [7] = { value = "Game Crash",                 size = 16 },
-            [8] = { value = "Other Right",                size = 18 },
-            [9] = { value = "Clear Comms" },
-            [10] = { value = "Pull Jinxed" },
+             [2] = { value = "Muted",                      size = 23 },
+             [3] = { value = "REPAIR",                     size = 22 },
+             [4] = { value = "Doooomin",                   size = 16 },
+             [5] = { value = "Corruption",                 size = 13 },
+             [1] = { value = "Giga Parse",                 size = 20 },
+             [6] = { value = "Early Pull",                 size = 18 },
+             [7] = { value = "Game Crash",                 size = 18 },
+             [8] = { value = "Other Right",                size = 18 },
+             [9] = { value = "Clear Comms",                size = 18 },
+            [10] = { value = "Pull Jinxed",                size = 18 },
             [11] = { value = "Timezone War",               size = 15 },
-            [12] = { value = "IRL Aggro" },
+            [12] = { value = "IRL Aggro",                  size = 18 },
             [13] = { value = "<Vod Review>",               size = 14 },
             [14] = { value = "HR Requested",               size = 14 },
             [15] = { value = "Tech Support" },
@@ -218,7 +218,7 @@ function Bingo.LoadDefaultBingoCards()
             [41] = { value = "Braainss' Jeeves, Eww",      size = 15, players = { "Braainss" }},
             [42] = { value = "Bitching Braainss",          size = 14, players = { "Braainss" }},
             [43] = { value = "Tenc 'Inspiring' Speech",    size = 14, players = { "Tencarus", "Tencdh" }},
-            [44] = { value = "Yuhbarrel Speaks at 2.5x",   size = 13, players = { "Yvairel", "Yvauras" }},
+            [44] = { value = "Yuhbarrel Speaks at 2.5x",   size = 14, players = { "Yvairel", "Yvauras" }},
             [45] = { value = "Vibekiller Enters the Chat", size = 13, players = { "Tencarus", "Tencdh" }},
         }
     }
@@ -305,6 +305,7 @@ end
 function Bingo:CreateFrames()
     -- Create main bingo frame aka the game frame
     self.BingoFrame = CreateFrame("Frame", "BingoFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
+    self.BingoFrame:SetFrameStrata("HIGH")
     self.BingoFrame:Hide()
 
     -- Register events

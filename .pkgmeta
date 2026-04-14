@@ -15,8 +15,6 @@ externals:
         url: https://github.com/pkulchenko/serpent
         tag: latest
 
-enable-nolib-creation: yes
-
 ignore:
     - .pkgmeta
     - .git

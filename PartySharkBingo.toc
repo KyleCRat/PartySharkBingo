@@ -1,5 +1,5 @@
 ## Interface: 120001, 120005
-## Version: 12.0.1-9
+## Version: 12.0.5-10
 ## Title: <Party Shark> Bingo
 ## Notes: Bingo for <Party Shark> Illidan, Built off of Bingo by Cold https://www.curseforge.com/wow/addons/bingo
 ## Author: Yvairel, Cold-1

@@ -2,6 +2,10 @@
 
 All notable changes to Party Shark Bingo will be documented in this file.
 
+## [12.0.5-10] - 2026-04-14
+
+- TOC Bump
+
 ## [12.0.1-9] - 2026-04-09
 
 - Update tiles

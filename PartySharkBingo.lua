@@ -380,6 +380,13 @@ function Bingo:CreateFrames()
         self.BingoFrame:Hide()
     end)
 
+    -- Add version text to main frame
+    self.BingoFrame.version = self.BingoFrame:CreateFontString(nil, "OVERLAY")
+    self.BingoFrame.version:SetFont(FONT_PATH, 14, "OUTLINESLUG")
+    self.BingoFrame.version:SetPoint("TOPRIGHT", self.BingoFrame, "BOTTOMRIGHT", -4, -2)
+    self.BingoFrame.version:SetTextColor(1, 1, 1, 1)
+    self.BingoFrame.version:SetText(C_AddOns.GetAddOnMetadata("PartySharkBingo", "Version"))
+
     -- Create confirmation popup for reset all button
     StaticPopupDialogs["BINGO_RESETALL_DIALOG"] = {
         text = "Are you sure you want to reset the bingo card?",

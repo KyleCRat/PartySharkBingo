@@ -79,4 +79,4 @@ This document describes all possible session state scenarios and how the addon h
 - Addon messages work during trash combat but not during boss encounters or M+ runs (Midnight restrictions)
 - UI buttons are blocked during any combat (`InCombatLockdown()`) but messaging system operates freely
 - Session state persists across reloads via `BingoSettings`
-- Leader is determined by character name (hardcoded as `IS_SESSION_LEADER`)
+- Leader controls are available to the party leader, raid leader, and raid assistants.

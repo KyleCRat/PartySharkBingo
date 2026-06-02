@@ -913,9 +913,9 @@ function Bingo:LoadBingoCard(cardName)
             for i = 1, 25 do
                 if not (i == 13) then
                     if not BingoCards[cardName]['persisted'][i] then
-                        self:RemoveSavedBingoCard()
-                        self:LoadBingoCard(cardName)
                         print('Saved Bingo Card was corrupt, resetting.')
+                        self:RemoveSavedBingoCard(cardName)
+                        return self:LoadBingoCard(cardName)
                     else
                         local persisted = BingoCards[cardName]['persisted'][i]
                         self:LoadButton(

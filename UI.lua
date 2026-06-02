@@ -227,7 +227,8 @@ end
 function Bingo:SyncScaleControl()
     if not self.ScaleButton then return end
 
-    local value = GetScalePercent(ClampScale(BingoSettings and BingoSettings.Scale or 1))
+    local settings = self:GetSettings()
+    local value = GetScalePercent(ClampScale(settings.Scale or 1))
 
     self.ScaleButton.text:SetText(FormatScaleButtonText(value))
 
@@ -239,9 +240,7 @@ end
 function Bingo:SetScale(scale)
     scale = ClampScale(scale)
 
-    if BingoSettings then
-        BingoSettings.Scale = scale
-    end
+    self:EnsureSettings().Scale = scale
 
     if self.BingoFrame then
         self.BingoFrame:SetScale(scale)
@@ -600,19 +599,21 @@ function Bingo:FitBingoButtonText(button, text)
 end
 
 function Bingo:SetCardTitle(cardName)
-    self.BingoFrame.text:SetFont(FONT_PATH, BingoCards[cardName]["TitleSize"] or 20, "OUTLINE")
-    self.BingoFrame.text:SetText(BingoCards[cardName]["Title"] or "Bingo!")
+    local card = self:GetCards()[cardName]
+    self.BingoFrame.text:SetFont(FONT_PATH, card["TitleSize"] or 20, "OUTLINE")
+    self.BingoFrame.text:SetText(card["Title"] or "Bingo!")
 end
 
 function Bingo:SetFreeSpace(cardName)
-    local text = BingoCards[cardName]["FreeSpace"] or "Free Space"
+    local card = self:GetCards()[cardName]
+    local text = card["FreeSpace"] or "Free Space"
     self:FitBingoButtonText(self.BingoButtons[13], text)
     self:SetButtonChecked(self.BingoButtons[13], true)
     self.BingoButtons[13]:Disable()
 end
 
 function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
-    local entry = BingoCards[cardName][cardID]
+    local entry = self:GetCards()[cardName][cardID]
     local text = type(entry) == "table" and entry.value or entry or cardID
 
     self.BingoButtons[buttonID].cardName = cardName
@@ -642,7 +643,7 @@ end
 
 local function GetSortedCardEntries(cardName)
     local entries = {}
-    local card = BingoCards and BingoCards[cardName]
+    local card = Bingo:GetCards()[cardName]
 
     if not card then
         return entries
@@ -705,9 +706,11 @@ function Bingo:CreateTilePreviewFrame()
 end
 
 function Bingo:ShowTilePreviewFrame(cardName)
-    cardName = cardName or self.CurrentBingoCard or (BingoSettings and BingoSettings.DefaultCard) or "Default"
+    local settings = self:GetSettings()
+    local cards = self:GetCards()
+    cardName = cardName or self.CurrentBingoCard or settings.DefaultCard or "Default"
 
-    if not BingoCards or not BingoCards[cardName] then
+    if not cards[cardName] then
         print("|cffff0000Error!|cffffffff Card |cffFFFFE0'" .. tostring(cardName) .. "'|cffffffff not found.")
         return
     end

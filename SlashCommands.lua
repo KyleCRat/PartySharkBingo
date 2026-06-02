@@ -57,7 +57,7 @@ end
 
 function Commands.list()
     print("|cffFFC125Bingo cards:")
-    for name in pairs(BingoCards) do
+    for name in pairs(Bingo:GetCards()) do
         print("  - " .. name)
     end
 end
@@ -71,7 +71,7 @@ function Commands.scale(args)
     end
 
     Bingo:SetScale(value)
-    print("|cffFFC125Bingo:|cffffffff Scale set to " .. math.floor(BingoSettings.Scale * 100 + 0.5) .. "%")
+    print("|cffFFC125Bingo:|cffffffff Scale set to " .. math.floor(Bingo:GetSettings().Scale * 100 + 0.5) .. "%")
 end
 
 function Commands.t(args)
@@ -85,8 +85,9 @@ function Commands.t(args)
 end
 
 function Commands.printversion()
-    BingoSettings.PrintVersionOnLoad = not BingoSettings.PrintVersionOnLoad
-    local status = BingoSettings.PrintVersionOnLoad and "|cff00ff00Enabled" or "|cffff0000Disabled"
+    local settings = Bingo:EnsureSettings()
+    settings.PrintVersionOnLoad = not settings.PrintVersionOnLoad
+    local status = settings.PrintVersionOnLoad and "|cff00ff00Enabled" or "|cffff0000Disabled"
     print("|cffFFC125Bingo:|cffffffff Print version on load " .. status)
 end
 
@@ -98,8 +99,8 @@ function Commands.defaultcard(args)
 
     local cardName = args[2]
 
-    if BingoCards[cardName] then
-        BingoSettings.DefaultCard = cardName
+    if Bingo:GetCards()[cardName] then
+        Bingo:EnsureSettings().DefaultCard = cardName
         print("|cffFFC125Bingo:|cffffffff Default card set to |cffFFFFE0'" .. cardName .. "'")
     else
         print("|cffff0000Error!|cffffffff Card |cffFFFFE0'" .. cardName .. "'|cffffffff not found. Use '/psb list' to see available cards.")
@@ -112,8 +113,8 @@ function Commands.resetcards()
 end
 
 function Commands.resetsettings()
-    Bingo.LoadDefaultSettings()
-    Bingo:SetScale(BingoSettings.Scale)
+    local settings = Bingo.LoadDefaultSettings()
+    Bingo:SetScale(settings.Scale)
     print("|cffff6060Bingo settings have been reset.")
 end
 

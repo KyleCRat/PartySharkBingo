@@ -6,6 +6,8 @@ local ADDON_MSG_PREFIX = "PSBINGO"
 ns.FONT_PATH = FONT_PATH
 ns.ADDON_MSG_PREFIX = ADDON_MSG_PREFIX
 
+local Bingo
+
 -- Helper to get full name with realm (always includes realm for consistency)
 local function GetFullUnitName(unit)
     local name, realm = UnitName(unit)
@@ -57,6 +59,8 @@ local function IsAnyPlayerInGroup(players)
 end
 
 local function IsSessionLeader()
+    local settings = Bingo and Bingo:GetSettings()
+
     if IsInRaid() then
         return UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
     end
@@ -65,8 +69,8 @@ local function IsSessionLeader()
         return UnitIsGroupLeader("player")
     end
 
-    if BingoSettings and BingoSettings.IsSessionLocked then
-        return BingoSettings.SessionLockedBy == GetFullUnitName("player")
+    if settings and settings.IsSessionLocked then
+        return settings.SessionLockedBy == GetFullUnitName("player")
     end
 
     return false
@@ -87,7 +91,14 @@ end
 ns.GetFullUnitName = GetFullUnitName
 ns.IsSessionLeader = IsSessionLeader
 
-local Bingo = {
+local DEFAULT_SETTINGS = {
+    PrintVersionOnLoad = false,
+    Scale = 1,
+    DefaultCard = "Default",
+    IsSessionLocked = false,
+}
+
+Bingo = {
     ADDON_NAME = addonName,
     BingoButtons = {},
     IsSessionLocked = false,
@@ -107,6 +118,79 @@ local Bingo = {
 
 ns.Bingo = Bingo
 
+local function CopyDefaultValue(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local copy = {}
+    for key, nestedValue in pairs(value) do
+        copy[key] = CopyDefaultValue(nestedValue)
+    end
+
+    return copy
+end
+
+local function BackfillDefaults(target, defaults)
+    for key, defaultValue in pairs(defaults) do
+        if target[key] == nil then
+            target[key] = CopyDefaultValue(defaultValue)
+        elseif type(target[key]) == "table" and type(defaultValue) == "table" then
+            BackfillDefaults(target[key], defaultValue)
+        end
+    end
+end
+
+local function GetEntryValue(entry)
+    if type(entry) == "table" then
+        return entry.value
+    end
+
+    return entry
+end
+
+local function HasCardEntryValue(card, value)
+    if value == nil then
+        return false
+    end
+
+    for index, entry in pairs(card) do
+        if type(index) == "number" and GetEntryValue(entry) == value then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function GetNextCardIndex(card)
+    local maxIndex = 0
+
+    for index in pairs(card) do
+        if type(index) == "number" and index > maxIndex then
+            maxIndex = index
+        end
+    end
+
+    return maxIndex + 1
+end
+
+local function BackfillBingoCard(card, defaultCard)
+    for key, defaultValue in pairs(defaultCard) do
+        if type(key) ~= "number" and key ~= "persisted" and card[key] == nil then
+            card[key] = CopyDefaultValue(defaultValue)
+        end
+    end
+
+    local nextIndex = GetNextCardIndex(card)
+    for _, defaultEntry in ipairs(defaultCard) do
+        if not HasCardEntryValue(card, GetEntryValue(defaultEntry)) then
+            card[nextIndex] = CopyDefaultValue(defaultEntry)
+            nextIndex = nextIndex + 1
+        end
+    end
+end
+
 function Bingo:Init()
     self.VERSION = C_AddOns.GetAddOnMetadata(self.ADDON_NAME, "Version")
     self.WasShownBeforeCombat = false
@@ -118,88 +202,140 @@ function Bingo:Init()
 end
 
 function Bingo.LoadDefaultSettings()
-    BingoSettings = {
-        PrintVersionOnLoad = false,
-        Scale = 1,
-        DefaultCard = "Default"
-    }
+    BingoSettings = CopyDefaultValue(DEFAULT_SETTINGS)
+    Bingo.Settings = BingoSettings
+
+    return BingoSettings
 end
 
-function Bingo.EventHandler(_, event, ...)
-    if event == "CHAT_MSG_ADDON" then
-        local prefix, message, channel, sender = ...
-        if prefix == ADDON_MSG_PREFIX then
-            Bingo:HandleAddonMessage(message, sender)
+function Bingo:EnsureSettings()
+    if not BingoSettings then
+        return Bingo.LoadDefaultSettings()
+    end
+
+    BackfillDefaults(BingoSettings, DEFAULT_SETTINGS)
+    self.Settings = BingoSettings
+
+    return BingoSettings
+end
+
+function Bingo:GetSettings()
+    if BingoSettings then
+        return BingoSettings
+    end
+
+    return DEFAULT_SETTINGS
+end
+
+function Bingo:EnsureBingoCards()
+    if not BingoCards then
+        return self.LoadDefaultBingoCards()
+    end
+
+    self.Cards = BingoCards
+
+    if not self.GetDefaultBingoCards then
+        return BingoCards
+    end
+
+    local defaultCards = self.GetDefaultBingoCards()
+    for cardName, defaultCard in pairs(defaultCards) do
+        if not BingoCards[cardName] then
+            BingoCards[cardName] = CopyDefaultValue(defaultCard)
+        else
+            BackfillBingoCard(BingoCards[cardName], defaultCard)
         end
+    end
+
+    return BingoCards
+end
+
+function Bingo:GetCards()
+    return BingoCards or self.Cards or {}
+end
+
+local function OnChatMessageAddon(_, prefix, message, channel, sender)
+    if prefix == ADDON_MSG_PREFIX then
+        Bingo:HandleAddonMessage(message, sender)
+    end
+end
+
+local function OnEncounterStart()
+    Bingo.InEncounter = true
+    Bingo.WasShownBeforeCombat = Bingo.BingoFrame:IsShown()
+    if Bingo.WasShownBeforeCombat then
+        Bingo.BingoFrame:Hide()
+    end
+end
+
+local function OnEncounterEnd()
+    Bingo.InEncounter = false
+    -- PLAYER_REGEN_ENABLED restores the frame once combat fully drops.
+end
+
+local function RestoreAfterCombat()
+    if Bingo.WasShownBeforeCombat and not Bingo.InEncounter then
+        Bingo.BingoFrame:Show()
+        Bingo.WasShownBeforeCombat = false
+    end
+end
+
+local function OnGroupRosterUpdate()
+    Bingo:OnGroupRosterUpdate()
+end
+
+local function OnAddonLoaded(frame, loadedAddon)
+    if loadedAddon ~= Bingo.ADDON_NAME then
         return
     end
 
-    local addon_name = ...
-    if event == "ENCOUNTER_START" then
-        Bingo.InEncounter = true
-        Bingo.WasShownBeforeCombat = Bingo.BingoFrame:IsShown()
-        if Bingo.WasShownBeforeCombat then
-            Bingo.BingoFrame:Hide()
+    frame:UnregisterEvent("ADDON_LOADED")
+
+    local settings = Bingo:EnsureSettings()
+    Bingo:EnsureBingoCards()
+    Bingo:SetScale(settings.Scale)
+
+    if settings.PrintVersionOnLoad then
+        print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff " .. Bingo.VERSION .. "|cff00ff00 Loaded")
+    end
+
+    print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff Loaded. Type /psbingo or /psb to open.")
+
+    Bingo:LoadBingoCard(settings.DefaultCard or "Default")
+
+    if settings.IsSessionLocked then
+        if settings.SessionPlayers then
+            Bingo.SessionPlayers = settings.SessionPlayers
         end
+        Bingo:SetSessionLocked(settings.IsSessionLocked, settings.SessionLockedBy)
+        Bingo:UpdateSessionPlayersDisplay()
 
-    elseif event == "ENCOUNTER_END" then
-        Bingo.InEncounter = false
-        -- Don't restore here; PLAYER_REGEN_ENABLED handles it once combat fully drops
-
-    elseif event == "PLAYER_REGEN_ENABLED"
-        or event == "PLAYER_ALIVE"
-        or event == "PLAYER_UNGHOST" then
-        if Bingo.WasShownBeforeCombat and not Bingo.InEncounter then
-            Bingo.BingoFrame:Show()
-            Bingo.WasShownBeforeCombat = false
+        if IsSessionLeader() and IsInGroup() then
+            Bingo:SendPingMessage()
         end
+    elseif IsSessionLeader() and IsInGroup() and Bingo.StartButton then
+        Bingo.StartButton:Show()
+    end
 
-    elseif event == "GROUP_ROSTER_UPDATE" then
-        Bingo:OnGroupRosterUpdate()
-        return
+    Bingo.WasInGroup = IsInGroup()
+    Bingo:UpdateSessionRoleUI()
+end
 
-    elseif event == "ADDON_LOADED" and addon_name == Bingo.ADDON_NAME then
-        if not BingoSettings then
-            Bingo.LoadDefaultSettings()
-        end
-        Bingo:SetScale(BingoSettings.Scale)
+local EVENT_HANDLERS = {
+    ADDON_LOADED = OnAddonLoaded,
+    CHAT_MSG_ADDON = OnChatMessageAddon,
+    ENCOUNTER_START = OnEncounterStart,
+    ENCOUNTER_END = OnEncounterEnd,
+    GROUP_ROSTER_UPDATE = OnGroupRosterUpdate,
+    PLAYER_ALIVE = RestoreAfterCombat,
+    PLAYER_REGEN_ENABLED = RestoreAfterCombat,
+    PLAYER_UNGHOST = RestoreAfterCombat,
+}
 
-        if not BingoCards then
-            Bingo.LoadDefaultBingoCards()
-        end
-
-        if BingoSettings.PrintVersionOnLoad then
-            print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff " .. Bingo.VERSION .. "|cff00ff00 Loaded")
-        end
-
-        print("|cffFFC125" .. Bingo.ADDON_NAME .. "|cffffffff Loaded. Type /psbingo or /psb to open.")
-
-        Bingo:LoadBingoCard(BingoSettings.DefaultCard or "Default")
-
-        -- Restore session lock state from saved variables
-        if BingoSettings.IsSessionLocked then
-            -- Restore session players
-            if BingoSettings.SessionPlayers then
-                Bingo.SessionPlayers = BingoSettings.SessionPlayers
-            end
-            Bingo:SetSessionLocked(BingoSettings.IsSessionLocked, BingoSettings.SessionLockedBy)
-            -- Update display after restoring
-            Bingo:UpdateSessionPlayersDisplay()
-
-            -- Leader should ping group to get current session status from all players
-            if IsSessionLeader() and IsInGroup() then
-                Bingo:SendPingMessage()
-            end
-        else
-            -- No active session - show Start button if leader is in a group
-            if IsSessionLeader() and IsInGroup() and Bingo.StartButton then
-                Bingo.StartButton:Show()
-            end
-        end
-
-        -- Initialize WasInGroup state for GROUP_ROSTER_UPDATE tracking
-        Bingo.WasInGroup = IsInGroup()
-        Bingo:UpdateSessionRoleUI()
+function Bingo.EventHandler(frame, event, ...)
+    local handler = EVENT_HANDLERS[event]
+    if handler then
+        handler(frame, ...)
     end
 end
 
@@ -217,7 +353,10 @@ function Bingo:ResetBoard()
 end
 
 function Bingo:SaveBingoCard(cardName, name, index)
-    if not BingoCards[cardName]['persisted'] then
+    local cards = self:GetCards()
+    if not cards[cardName] then return end
+
+    if not cards[cardName]['persisted'] then
         local persistedBoard = {}
 
         for i, button in pairs(self.BingoButtons) do
@@ -226,14 +365,17 @@ function Bingo:SaveBingoCard(cardName, name, index)
             persistedBoard[i]['enabled'] = not button.isChecked
         end
 
-        BingoCards[cardName]['persisted'] = persistedBoard
+        cards[cardName]['persisted'] = persistedBoard
     else
-        BingoCards[cardName]['persisted'][index]['enabled'] = false
+        cards[cardName]['persisted'][index]['enabled'] = false
     end
 end
 
 function Bingo:RemoveSavedBingoCard(cardName)
-    BingoCards[cardName]['persisted'] = nil
+    local cards = self:GetCards()
+    if cards[cardName] then
+        cards[cardName]['persisted'] = nil
+    end
 end
 
 function Bingo:HasAnySquaresChecked()
@@ -249,17 +391,18 @@ end
 
 function Bingo:LoadBingoCard(cardName)
     Bingo.currentCardName = cardName
+    local cards = self:GetCards()
 
-    if BingoCards[cardName] then
-        if BingoCards[cardName]['persisted'] then
+    if cards[cardName] then
+        if cards[cardName]['persisted'] then
             for i = 1, 25 do
                 if not (i == 13) then
-                    if not BingoCards[cardName]['persisted'][i] then
+                    if not cards[cardName]['persisted'][i] then
                         print('Saved Bingo Card was corrupt, resetting.')
                         self:RemoveSavedBingoCard(cardName)
                         return self:LoadBingoCard(cardName)
                     else
-                        local persisted = BingoCards[cardName]['persisted'][i]
+                        local persisted = cards[cardName]['persisted'][i]
                         self:LoadButton(
                             cardName,
                             i,
@@ -274,7 +417,7 @@ function Bingo:LoadBingoCard(cardName)
 
             -- For each index of type number ([x] = y), add to our list of possible draws
             -- Skip player-specific tiles if none of their players are in the group
-            for index, entry in pairs(BingoCards[cardName]) do
+            for index, entry in pairs(cards[cardName]) do
                 if type(index) == "number" then
                     if not entry.players or IsAnyPlayerInGroup(entry.players) then
                         tinsert(bingoSpaces, index)
@@ -358,12 +501,14 @@ end
 
 function Bingo:AnnounceBingo(winningIndices, lineName)
     local cardTexts = {}
+    local cards = self:GetCards()
 
     for _, index in ipairs(winningIndices) do
         local buttonName = self.BingoButtons[index].name
         if index == 13 then
             -- Use the free space text for the center button
-            buttonName = BingoCards[self.CurrentBingoCard]["FreeSpace"] or "Free Space"
+            local card = cards[self.CurrentBingoCard] or {}
+            buttonName = card["FreeSpace"] or "Free Space"
         end
         tinsert(cardTexts, buttonName)
     end
@@ -515,7 +660,7 @@ function Bingo:AddSessionPlayer(name)
     -- Add to session players list or confirm if pending
     if self.SessionPlayers[name] ~= true then
         self.SessionPlayers[name] = true
-        BingoSettings.SessionPlayers = self.SessionPlayers
+        self:EnsureSettings().SessionPlayers = self.SessionPlayers
         self:UpdateSessionPlayersDisplay()
     end
 end
@@ -525,14 +670,14 @@ function Bingo:RemoveSessionPlayer(name)
 
     if self.SessionPlayers[name] then
         self.SessionPlayers[name] = nil
-        BingoSettings.SessionPlayers = self.SessionPlayers
+        self:EnsureSettings().SessionPlayers = self.SessionPlayers
         self:UpdateSessionPlayersDisplay()
     end
 end
 
 function Bingo:ClearSessionPlayers()
     self.SessionPlayers = {}
-    BingoSettings.SessionPlayers = nil
+    self:EnsureSettings().SessionPlayers = nil
     self:UpdateSessionPlayersDisplay()
 end
 
@@ -587,8 +732,9 @@ function Bingo:SetSessionLocked(locked, lockedBy)
     end
 
     -- Persist lock state to saved variables
-    BingoSettings.IsSessionLocked = locked
-    BingoSettings.SessionLockedBy = lockedBy
+    local settings = self:EnsureSettings()
+    settings.IsSessionLocked = locked
+    settings.SessionLockedBy = lockedBy
 
     self:UpdateSessionRoleUI()
 
@@ -612,8 +758,9 @@ function Bingo:LeaveSession()
     self.SessionLockedBy = nil
 
     -- Persist and hide leave button
-    BingoSettings.IsSessionLocked = false
-    BingoSettings.SessionLockedBy = nil
+    local settings = self:EnsureSettings()
+    settings.IsSessionLocked = false
+    settings.SessionLockedBy = nil
     self:UpdateSessionRoleUI()
 
     print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff You left the session.")

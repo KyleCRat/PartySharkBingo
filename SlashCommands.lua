@@ -33,6 +33,7 @@ function Commands.help()
     print("|cffFFFFE0/psb |cffADFF2Fprintversion |cffffffff- Enable/Disable printing the addon version on load.")
     print("|cffFFFFE0/psb |cffADFF2Fdefaultcard |cff71C671<Card Name> |cffffffff- Sets the default card to load.")
     print("|cffFFFFE0/psb |cffADFF2Fscale |cff71C671<Number> |cffffffff- Scales the interface from 0.5 to 1.5.")
+    print("|cffFFFFE0/psb |cffADFF2Ft |cff71C671<Card Name> |cffffffff- Preview all tile values for a card.")
     print("|cffFFFFE0/psb |cffADFF2Flist |cffffffff- List all saved bingo cards.")
     print("|cffFFFFE0/psb |cffADFF2Fload |cff71C671<Card Name> |cffffffff- Load a card (case-sensitive).")
 end
@@ -71,6 +72,16 @@ function Commands.scale(args)
 
     Bingo:SetScale(value)
     print("|cffFFC125Bingo:|cffffffff Scale set to " .. math.floor(BingoSettings.Scale * 100 + 0.5) .. "%")
+end
+
+function Commands.t(args)
+    local cardName
+
+    if args[2] then
+        cardName = GetRemainingArgs(args, 2)
+    end
+
+    Bingo:ShowTilePreviewFrame(cardName)
 end
 
 function Commands.printversion()

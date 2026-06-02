@@ -20,6 +20,10 @@ local BINGO_BUTTON_MAX_FONT_SIZE = 28
 local FONT_FIT_WIDTH_FUDGE = 4
 local FONT_FIT_HEIGHT_FUDGE = 6
 local FONT_MEASURE_WIDTH = 10000
+local TILE_PREVIEW_COLUMNS = 8
+local TILE_PREVIEW_PADDING = 15
+local TILE_PREVIEW_SPACING = 6
+local TILE_PREVIEW_TITLE_HEIGHT = 42
 
 local function GetScalePercent(scale)
     scale = tonumber(scale) or 1
@@ -616,6 +620,149 @@ function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
 
     self:FitBingoButtonText(self.BingoButtons[buttonID], text)
     self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
+end
+
+local function CreatePreviewTile(parent)
+    local tile = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    tile:SetSize(BINGO_BUTTON_SIZE, BINGO_BUTTON_SIZE)
+
+    tile:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
+    tile:SetPushedTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonPushed.tga")
+    tile:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
+    tile:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
+
+    tile.text = UI.CreateFontString(tile, 10, "OUTLINE")
+    tile.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
+    tile.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
+    tile.text:SetJustifyH("CENTER")
+    tile.text:SetJustifyV("MIDDLE")
+
+    return tile
+end
+
+local function GetSortedCardEntries(cardName)
+    local entries = {}
+    local card = BingoCards and BingoCards[cardName]
+
+    if not card then
+        return entries
+    end
+
+    for index, entry in pairs(card) do
+        if type(index) == "number" then
+            entries[#entries + 1] = {
+                index = index,
+                entry = entry,
+            }
+        end
+    end
+
+    table.sort(entries, function(a, b)
+        return a.index < b.index
+    end)
+
+    return entries
+end
+
+function Bingo:CreateTilePreviewFrame()
+    if self.TilePreviewFrame then return end
+
+    local frame = UI.CreateBackdropFrame(
+        "Frame",
+        "BingoTilePreviewFrame",
+        UIParent,
+        self.DefaultBackdrop,
+        { 0.1, 0.1, 0.1, 0.95 },
+        { 0.6, 0.6, 0.6, 1 }
+    )
+    frame:SetFrameStrata("HIGH")
+    frame:SetFrameLevel(10)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag("LeftButton")
+    frame:SetClampedToScreen(true)
+    frame:SetToplevel(true)
+    frame:SetPoint("CENTER")
+    frame:SetScript("OnDragStart", frame.StartMoving)
+    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+
+    frame.title = UI.CreateFontString(frame, 20, "OUTLINE", { 1, 0.82, 0, 1 })
+    frame.title:SetPoint("TOPLEFT", TILE_PREVIEW_PADDING, -12)
+    frame.title:SetPoint("TOPRIGHT", -40, -12)
+    frame.title:SetJustifyH("LEFT")
+
+    frame.close = CreateFrame("Button", "BingoTilePreviewFrameCloseButton", frame, "UIPanelCloseButton")
+    frame.close:SetPoint("TOPRIGHT", -6, -6)
+    frame.close:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+
+    frame.tiles = {}
+    tinsert(UISpecialFrames, frame:GetName())
+
+    frame:Hide()
+    self.TilePreviewFrame = frame
+end
+
+function Bingo:ShowTilePreviewFrame(cardName)
+    cardName = cardName or self.CurrentBingoCard or (BingoSettings and BingoSettings.DefaultCard) or "Default"
+
+    if not BingoCards or not BingoCards[cardName] then
+        print("|cffff0000Error!|cffffffff Card |cffFFFFE0'" .. tostring(cardName) .. "'|cffffffff not found.")
+        return
+    end
+
+    self:CreateTilePreviewFrame()
+
+    local frame = self.TilePreviewFrame
+    local entries = GetSortedCardEntries(cardName)
+    local count = #entries
+    local rows = math.max(1, math.ceil(count / TILE_PREVIEW_COLUMNS))
+    local width = TILE_PREVIEW_PADDING * 2
+        + TILE_PREVIEW_COLUMNS * BINGO_BUTTON_SIZE
+        + (TILE_PREVIEW_COLUMNS - 1) * TILE_PREVIEW_SPACING
+    local height = TILE_PREVIEW_TITLE_HEIGHT
+        + TILE_PREVIEW_PADDING
+        + rows * BINGO_BUTTON_SIZE
+        + (rows - 1) * TILE_PREVIEW_SPACING
+
+    frame:SetSize(width, height)
+    frame.title:SetText(cardName .. " Tiles (" .. count .. ")")
+
+    for _, tile in pairs(frame.tiles) do
+        tile:Hide()
+    end
+
+    for i, item in ipairs(entries) do
+        local tile = frame.tiles[i]
+        if not tile then
+            tile = CreatePreviewTile(frame)
+            frame.tiles[i] = tile
+        end
+
+        local col = (i - 1) % TILE_PREVIEW_COLUMNS
+        local row = math.floor((i - 1) / TILE_PREVIEW_COLUMNS)
+        local entry = item.entry
+        local text = type(entry) == "table" and entry.value or entry or item.index
+
+        tile:ClearAllPoints()
+        tile:SetPoint(
+            "TOPLEFT",
+            frame,
+            "TOPLEFT",
+            TILE_PREVIEW_PADDING + col * (BINGO_BUTTON_SIZE + TILE_PREVIEW_SPACING),
+            -TILE_PREVIEW_TITLE_HEIGHT - row * (BINGO_BUTTON_SIZE + TILE_PREVIEW_SPACING)
+        )
+        tile.cardName = cardName
+        tile.index = item.index
+        tile.name = text
+
+        self:FitBingoButtonText(tile, text)
+        self:SetButtonChecked(tile, false)
+        tile:Show()
+    end
+
+    frame:Show()
 end
 
 function Bingo:UpdateSessionPlayersDisplay()

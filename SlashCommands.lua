@@ -32,7 +32,7 @@ function Commands.help()
     print("|cffFFFFE0/psb |cffADFF2Fresetsettings |cffffffff- Reset all settings back to the default.")
     print("|cffFFFFE0/psb |cffADFF2Fprintversion |cffffffff- Enable/Disable printing the addon version on load.")
     print("|cffFFFFE0/psb |cffADFF2Fdefaultcard |cff71C671<Card Name> |cffffffff- Sets the default card to load.")
-    print("|cffFFFFE0/psb |cffADFF2Fscale |cff71C671<Number> |cffffffff- Scales the interface (default: 1).")
+    print("|cffFFFFE0/psb |cffADFF2Fscale |cff71C671<Number> |cffffffff- Scales the interface from 0.5 to 1.5.")
     print("|cffFFFFE0/psb |cffADFF2Flist |cffffffff- List all saved bingo cards.")
     print("|cffFFFFE0/psb |cffADFF2Fload |cff71C671<Card Name> |cffffffff- Load a card (case-sensitive).")
 end
@@ -62,16 +62,15 @@ function Commands.list()
 end
 
 function Commands.scale(args)
-    local value = args[2]
+    local value = tonumber(args[2])
 
-    if not value or not value:match("%d+") then
-        print("|cffff0000Error!|cffffffff Invalid scale value.|cff00ccff Example:|cffffffff '/psb scale 1.5'")
+    if not value then
+        print("|cffff0000Error!|cffffffff Invalid scale value.|cff00ccff Example:|cffffffff '/psb scale 1.0'")
         return
     end
 
-    BingoSettings.Scale = tonumber(value)
-    Bingo.BingoFrame:SetScale(BingoSettings.Scale)
-    print("|cffFFC125Bingo:|cffffffff Scale set to " .. value)
+    Bingo:SetScale(value)
+    print("|cffFFC125Bingo:|cffffffff Scale set to " .. math.floor(BingoSettings.Scale * 100 + 0.5) .. "%")
 end
 
 function Commands.printversion()
@@ -103,7 +102,7 @@ end
 
 function Commands.resetsettings()
     Bingo.LoadDefaultSettings()
-    Bingo.BingoFrame:SetScale(BingoSettings.Scale)
+    Bingo:SetScale(BingoSettings.Scale)
     print("|cffff6060Bingo settings have been reset.")
 end
 

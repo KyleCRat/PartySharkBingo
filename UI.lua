@@ -7,6 +7,37 @@ local IsSessionLeader = ns.IsSessionLeader
 local UI = ns.UI or {}
 ns.UI = UI
 
+local SCALE_MIN = 50
+local SCALE_MAX = 150
+local SCALE_STEP = 5
+local SCALE_BUTTON_WIDTH = 90
+local SCALE_BUTTON_HEIGHT = 28
+local BOARD_LEFT_X = 0
+
+local function GetScalePercent(scale)
+    scale = tonumber(scale) or 1
+
+    return math.floor(scale * 100 / SCALE_STEP + 0.5) * SCALE_STEP
+end
+
+local function ClampScale(scale)
+    local value = GetScalePercent(scale)
+
+    if value < SCALE_MIN then
+        return SCALE_MIN / 100
+    end
+
+    if value > SCALE_MAX then
+        return SCALE_MAX / 100
+    end
+
+    return value / 100
+end
+
+local function FormatScaleButtonText(value)
+    return "Scale: " .. value .. "%"
+end
+
 function UI.CreateBackdropFrame(frameType, name, parent, backdrop, bgColor, borderColor, template)
     local frame = CreateFrame(frameType or "Frame", name, parent, template or (BackdropTemplateMixin and "BackdropTemplate"))
 
@@ -81,6 +112,41 @@ function UI.CreateStyledButton(parent, name, width, height, text)
     return button
 end
 
+function UI.CreatePopupSlider(button, options)
+    options = options or {}
+    options.font = options.font or FONT_PATH
+    options.bgColor = options.bgColor or { r = 0.15, g = 0.15, b = 0.15, a = 0.95 }
+    options.trackColor = options.trackColor or { r = 0.5, g = 0.5, b = 0.5, a = 1 }
+
+    return LibStub("LibPopupSlider-1.0"):Create(button, options)
+end
+
+function Bingo:SyncScaleControl()
+    if not self.ScaleButton then return end
+
+    local value = GetScalePercent(ClampScale(BingoSettings and BingoSettings.Scale or 1))
+
+    self.ScaleButton.text:SetText(FormatScaleButtonText(value))
+
+    if self.ScalePopup then
+        self.ScalePopup:SetValue(value, true)
+    end
+end
+
+function Bingo:SetScale(scale)
+    scale = ClampScale(scale)
+
+    if BingoSettings then
+        BingoSettings.Scale = scale
+    end
+
+    if self.BingoFrame then
+        self.BingoFrame:SetScale(scale)
+    end
+
+    self:SyncScaleControl()
+end
+
 function Bingo:CreateFrames()
     self.BingoFrame = UI.CreateBackdropFrame(
         "Frame",
@@ -149,6 +215,26 @@ function Bingo:CreateFrames()
 
     self.BingoFrame.version = UI.CreateFontString(self.BingoFrame, 14, "OUTLINESLUG", { 1, 1, 1, 1 }, C_AddOns.GetAddOnMetadata("PartySharkBingo", "Version"))
     self.BingoFrame.version:SetPoint("TOPRIGHT", self.BingoFrame, "BOTTOMRIGHT", -4, -2)
+
+    self.ScaleButton = UI.CreateStyledButton(self.BingoFrame, "BingoScaleButton", SCALE_BUTTON_WIDTH, SCALE_BUTTON_HEIGHT, "")
+    self.ScaleButton:SetPoint("TOPLEFT", self.BingoFrame, "BOTTOMLEFT", BOARD_LEFT_X, -2)
+
+    self.ScalePopup = UI.CreatePopupSlider(self.ScaleButton, {
+        minValue = SCALE_MIN,
+        maxValue = SCALE_MAX,
+        step = SCALE_STEP,
+        label = "Scale",
+        valueFitText = "150%",
+
+        formatValue = function(value)
+            return value .. "%"
+        end,
+
+        onValueChanged = function(value)
+            Bingo:SetScale(value / 100)
+        end,
+    })
+    self:SyncScaleControl()
 
     StaticPopupDialogs["BINGO_RESETALL_DIALOG"] = {
         text = "Are you sure you want to reset the bingo card?",

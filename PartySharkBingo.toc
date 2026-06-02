@@ -9,6 +9,7 @@
 
 libs\LibStub\LibStub.lua
 libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibPopupSlider-1.0\LibPopupSlider-1.0.xml
 
 Core.lua
 Data.lua

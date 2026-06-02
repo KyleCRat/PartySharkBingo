@@ -161,9 +161,8 @@ function Bingo.EventHandler(_, event, ...)
     elseif event == "ADDON_LOADED" and addon_name == Bingo.ADDON_NAME then
         if not BingoSettings then
             Bingo.LoadDefaultSettings()
-        else
-            Bingo.BingoFrame:SetScale(BingoSettings.Scale)
         end
+        Bingo:SetScale(BingoSettings.Scale)
 
         if not BingoCards then
             Bingo.LoadDefaultBingoCards()

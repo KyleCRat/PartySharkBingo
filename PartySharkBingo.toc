@@ -9,7 +9,6 @@
 
 libs\LibStub\LibStub.lua
 libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
-libs\serpent\serpent.lua
 
 PartySharkBingo.lua
 SlashCommands.lua

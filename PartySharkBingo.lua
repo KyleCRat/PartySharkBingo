@@ -2,9 +2,6 @@ local addonName, ns = ...
 
 local FONT_PATH = "Interface\\AddOns\\PartySharkBingo\\media\\fonts\\PTSansNarrow-Bold.ttf"
 
--- Feature flags
-local SHOW_IMPORT_EXPORT_BUTTONS = false
-
 -- Addon message constants
 local ADDON_MSG_PREFIX = "PSBINGO"
 
@@ -153,7 +150,7 @@ local Bingo = {
     }
 }
 
--- Export Bingo to namespace for other files
+-- Expose Bingo to namespace for other files
 ns.Bingo = Bingo
 
 function Bingo:Init()
@@ -170,8 +167,7 @@ function Bingo.LoadDefaultSettings()
     BingoSettings = {
         PrintVersionOnLoad = false,
         Scale = 1,
-        DefaultCard = "Default",
-        LoadOnImport = true
+        DefaultCard = "Default"
     }
 end
 
@@ -473,41 +469,6 @@ function Bingo:CreateFrames()
     end)
     nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
 
-    -- Import button (controlled by SHOW_IMPORT_EXPORT_BUTTONS flag)
-    if SHOW_IMPORT_EXPORT_BUTTONS then
-        self.ImportButton = CreateStyledButton(self.BingoFrame, "BingoImportButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Import")
-        self.ImportButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
-        self.ImportButton:SetScript("OnClick", function()
-            self.BingoEditBox:SetText("")
-            self.BingoSaveButton:Show()
-            self.BingoSelectAllButton:Hide()
-            self.BingoFrame:Hide()
-            self.BingoEditFrame:Show()
-        end)
-        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
-    end
-
-    -- Export button (controlled by SHOW_IMPORT_EXPORT_BUTTONS flag)
-    if SHOW_IMPORT_EXPORT_BUTTONS then
-        self.ExportButton = CreateStyledButton(self.BingoFrame, "BingoExportButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Export")
-        self.ExportButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
-        self.ExportButton:SetScript("OnClick", function()
-            if self.CurrentBingoCard then
-                self.BingoEditBox:SetText(ns.serpent.block(BingoCards[self.CurrentBingoCard],
-                    { sparse = true, comment = false }))
-                self.BingoEditBox:HighlightText()
-                self.BingoSaveButton:Hide()
-                self.BingoSelectAllButton:Show()
-                self.BingoFrame:Hide()
-                self.BingoEditFrame:Show()
-                self.BingoEditBox:SetFocus(true)
-            else
-                print("|cffff0000Error!|cffffffff Load a card before trying to export.")
-            end
-        end)
-        nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
-    end
-
     -- Shuffle button (always shown)
     self.ShuffleButton = CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
     self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
@@ -621,183 +582,6 @@ function Bingo:CreateFrames()
             return
         end
         StaticPopup_Show("BINGO_LEAVE_SESSION_DIALOG")
-    end)
-
-    -- Create the import/export frame
-    self.BingoEditFrame = CreateFrame("Frame", "BingoEditFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
-    self.BingoEditFrame:SetScript("OnDragStart", self.BingoEditFrame.StartMoving)
-    self.BingoEditFrame:SetScript("OnDragStop", self.BingoEditFrame.StopMovingOrSizing)
-
-    self.BingoEditFrame:SetFrameLevel(40)
-    self.BingoEditFrame:SetMovable(true)
-    self.BingoEditFrame:EnableMouse(true)
-    self.BingoEditFrame:RegisterForDrag("LeftButton")
-
-    self.BingoEditFrame:SetPoint("CENTER")
-    self.BingoEditFrame:SetWidth(400)
-    self.BingoEditFrame:SetHeight(400)
-    self.BingoEditFrame:SetResizable(true)
-    if self.BingoEditFrame.SetBackdrop then
-        self.BingoEditFrame:SetBackdrop(self.DefaultBackdrop)
-        self.BingoEditFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
-        self.BingoEditFrame:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
-    end
-    tinsert(UISpecialFrames, self.BingoEditFrame:GetName())
-
-    -- Add a background for the text input area
-    self.BingoEditBoxBackground = CreateFrame("Frame", "BingoEditBoxBackground", self.BingoEditFrame, BackdropTemplateMixin and "BackdropTemplate")
-    self.BingoEditBoxBackground:SetPoint("TOPLEFT", 8, -8)
-    self.BingoEditBoxBackground:SetPoint("BOTTOMRIGHT", -8, 45)
-    self.BingoEditBoxBackground:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = { left = 3, right = 3, top = 3, bottom = 3 },
-    })
-    self.BingoEditBoxBackground:SetBackdropColor(0, 0, 0, 1)
-    self.BingoEditBoxBackground:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
-
-    -- Add a scroll frame to the import/export frame
-    self.BingoScrollFrame = CreateFrame("ScrollFrame", "BingoScrollFrame", self.BingoEditBoxBackground,
-        "UIPanelScrollFrameTemplate")
-    self.BingoScrollFrame:SetPoint("TOPLEFT", 8, -8)
-    self.BingoScrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
-
-    -- Add the edit box to the scroll frame
-    self.BingoEditBox = CreateFrame("EditBox", "BingoEditBox", self.BingoScrollFrame)
-    self.BingoEditBox:SetMultiLine(true)
-    self.BingoEditBox:SetAutoFocus(false)
-    self.BingoEditBox:SetFontObject("ChatFontNormal")
-    self.BingoEditBox:SetScript("OnEscapePressed", function()
-        self.BingoEditBox:ClearFocus()
-    end)
-
-    -- Set focus to edit box when user clicks on any part of the scroll frame
-    self.BingoScrollFrame:SetScrollChild(self.BingoEditBox)
-    self.BingoScrollFrame:SetScript("OnMouseDown", function()
-        self.BingoEditBox:SetFocus(true)
-    end)
-
-    -- Adjust edit box width when edit frame is shown to make sure text will not go off frame
-    self.BingoEditFrame:SetScript("OnShow", function()
-        Bingo.BingoEditBox:SetWidth(Bingo.BingoScrollFrame:GetWidth())
-    end)
-
-    -- Create enter name popup before saving
-    local saveCard = function(self)
-        if (Bingo.BingoEditBox:GetText() == "") then
-            print("|cffff0000Error!|cffffffff Can't save nothing.")
-            return
-        end
-
-        local ok, card
-
-        if (string.find(Bingo.BingoEditBox:GetText(), "{") and string.find(Bingo.BingoEditBox:GetText(), "}")) then
-            ok, card = ns.serpent.load(Bingo.BingoEditBox:GetText())
-        end
-
-        if ok then
-            BingoCards[self.EditBox:GetText()] = card
-            Bingo.BingoEditFrame:Hide()
-            Bingo.BingoFrame:Show()
-            print("|cffFFC125" ..
-                Bingo.ADDON_NAME .. "|cffffffff card |cffFFFFE0'" .. self.EditBox:GetText() .. "'|cffffffff saved.")
-            if BingoSettings.LoadOnImport then
-                Bingo.LoadBingoCard(self.EditBox:GetText())
-            end
-        else
-            print("|cffff0000Error!|cffffffff Unable to save card |cffFFFFE0'" ..
-                self.EditBox:GetText() .. "'|cffffffff, check the import string is properly formatted.")
-        end
-    end
-
-    StaticPopupDialogs["BINGO_SAVE_DIALOG"] = {
-        text = "Enter a name for this card.\n\n|cffff6060Entering an existing name will overwrite that card",
-        button1 = SAVE,
-        button2 = CANCEL,
-        timeout = 0,
-        whileDead = true,
-        hasEditBox = true,
-        autoFocus = true,
-        OnAccept = saveCard,
-        OnShow = function(self)
-            if self.Buttons[1] then
-                self.Buttons[1]:Disable()
-            end
-        end,
-        EditBoxOnTextChanged = function(self)
-            if (self:GetText() == "") then
-                self:GetParent().Buttons[1]:Disable()
-            else
-                self:GetParent().Buttons[1]:Enable()
-            end
-        end,
-        EditBoxOnEscapePressed = function(self)
-            self:GetParent():Hide()
-        end,
-        EditBoxOnEnterPressed = function(self)
-            if self:GetParent().Buttons[1]:IsEnabled() then
-                saveCard(self:GetParent())
-                self:GetParent():Hide()
-            end
-        end
-    }
-
-    -- Add close button to the import/export frame
-    self.BingoCloseButton = CreateFrame("Button", "BingoCloseButton", self.BingoEditFrame, "UIPanelButtonTemplate")
-    self.BingoCloseButton:SetSize(75, 20)
-    self.BingoCloseButton:SetPoint("BOTTOMRIGHT", -75, 19)
-    self.BingoCloseButton:SetText("Close")
-    self.BingoCloseButton:SetScript("OnClick", function()
-        self.BingoEditFrame:Hide()
-        self.BingoFrame:Show()
-    end)
-
-    -- Add save button to the import/export frame
-    self.BingoSaveButton = CreateFrame("Button", "BingoSaveButton", self.BingoEditFrame, "UIPanelButtonTemplate")
-    self.BingoSaveButton:SetSize(75, 20)
-    self.BingoSaveButton:SetPoint("BOTTOMLEFT", 75, 19)
-    self.BingoSaveButton:SetText(SAVE)
-    self.BingoSaveButton:SetScript("OnClick", function()
-        self.BingoEditBox:ClearFocus()
-        StaticPopup_Show("BINGO_SAVE_DIALOG")
-    end)
-    self.BingoSaveButton:Hide()
-
-    -- Add select all button to the import/export frame
-    self.BingoSelectAllButton = CreateFrame("Button", "BingoSelectAllButton", self.BingoEditFrame,
-        "UIPanelButtonTemplate")
-    self.BingoSelectAllButton:SetSize(75, 20)
-    self.BingoSelectAllButton:SetPoint("BOTTOMLEFT", 75, 19)
-    self.BingoSelectAllButton:SetText("Select All")
-    self.BingoSelectAllButton:SetScript("OnClick", function()
-        self.BingoEditBox:HighlightText()
-    end)
-    self.BingoSelectAllButton:Hide()
-
-    -- Add resize button to the import/export frame
-    self.BingoEditFrameResizeButton = CreateFrame("Button", "BingoEditFrameResizeButton", self.BingoEditFrame)
-    self.BingoEditFrameResizeButton:SetSize(16, 16)
-    self.BingoEditFrameResizeButton:SetPoint("BOTTOMRIGHT", -9, 8)
-
-    self.BingoEditFrameResizeButton:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-    self.BingoEditFrameResizeButton:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-    self.BingoEditFrameResizeButton:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-
-    self.BingoEditFrameResizeButton:SetScript("OnMouseDown", function(self, button)
-        if (button == "LeftButton") then
-            Bingo.BingoEditFrame:StartSizing("BOTTOMRIGHT")
-            self:GetHighlightTexture():Hide()
-        end
-    end)
-    self.BingoEditFrameResizeButton:SetScript("OnMouseUp", function(self, button)
-        if (button == "LeftButton") then
-            self:GetHighlightTexture():Show()
-            Bingo.BingoEditFrame:StopMovingOrSizing()
-            Bingo.BingoEditBox:SetWidth(Bingo.BingoScrollFrame:GetWidth())
-        end
     end)
 
     -- Create confirmation popup for when game is won

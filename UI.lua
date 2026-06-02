@@ -1,0 +1,546 @@
+local _, ns = ...
+local Bingo = ns.Bingo
+local FONT_PATH = ns.FONT_PATH
+local ADDON_MSG_PREFIX = ns.ADDON_MSG_PREFIX
+local IsSessionLeader = ns.IsSessionLeader
+
+local UI = ns.UI or {}
+ns.UI = UI
+
+function UI.CreateBackdropFrame(frameType, name, parent, backdrop, bgColor, borderColor, template)
+    local frame = CreateFrame(frameType or "Frame", name, parent, template or (BackdropTemplateMixin and "BackdropTemplate"))
+
+    if frame.SetBackdrop and backdrop then
+        frame:SetBackdrop(backdrop)
+        if bgColor then
+            frame:SetBackdropColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4])
+        end
+        if borderColor then
+            frame:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
+        end
+    end
+
+    return frame
+end
+
+function UI.CreateFontString(parent, size, flags, color, text)
+    local fontString = parent:CreateFontString(nil, "OVERLAY")
+    fontString:SetFont(FONT_PATH, size, flags or "OUTLINE")
+
+    if color then
+        fontString:SetTextColor(color[1], color[2], color[3], color[4])
+    end
+    if text then
+        fontString:SetText(text)
+    end
+
+    return fontString
+end
+
+function UI.CreateStyledButton(parent, name, width, height, text)
+    local button = UI.CreateBackdropFrame(
+        "Button",
+        name,
+        parent,
+        {
+            bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true,
+            tileSize = 16,
+            edgeSize = 12,
+            insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        },
+        { 0.15, 0.15, 0.15, 1 },
+        { 0.6, 0.6, 0.6, 1 }
+    )
+    button:SetSize(width, height)
+
+    button.text = UI.CreateFontString(button, 14, "OUTLINE", { 1, 0.82, 0, 1 }, text)
+    button.text:SetPoint("CENTER", 0, 0)
+
+    button:SetScript("OnEnter", function(self)
+        self:SetBackdropColor(0.25, 0.25, 0.25, 1)
+        self:SetBackdropBorderColor(1, 0.82, 0, 1)
+    end)
+
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(0.15, 0.15, 0.15, 1)
+        self:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+    end)
+
+    button:SetScript("OnMouseDown", function(self)
+        self:SetBackdropColor(0.1, 0.1, 0.1, 1)
+        self.text:SetPoint("CENTER", 1, -1)
+    end)
+
+    button:SetScript("OnMouseUp", function(self)
+        self:SetBackdropColor(0.25, 0.25, 0.25, 1)
+        self.text:SetPoint("CENTER", 0, 0)
+    end)
+
+    return button
+end
+
+function Bingo:CreateFrames()
+    self.BingoFrame = UI.CreateBackdropFrame(
+        "Frame",
+        "BingoFrame",
+        UIParent,
+        self.DefaultBackdrop,
+        { 0.1, 0.1, 0.1, 0.9 },
+        { 0.6, 0.6, 0.6, 1 }
+    )
+    self.BingoFrame:SetFrameStrata("HIGH")
+    self.BingoFrame:Hide()
+
+    -- Register events
+    self.BingoFrame:SetScript("OnEvent", self.EventHandler)
+    self.BingoFrame:SetScript("OnDragStart", self.BingoFrame.StartMoving)
+    self.BingoFrame:SetScript("OnDragStop", self.BingoFrame.StopMovingOrSizing)
+    self.BingoFrame:RegisterEvent("ADDON_LOADED")
+    self.BingoFrame:RegisterEvent("ENCOUNTER_START")
+    self.BingoFrame:RegisterEvent("ENCOUNTER_END")
+    self.BingoFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self.BingoFrame:RegisterEvent("PLAYER_ALIVE")
+    self.BingoFrame:RegisterEvent("PLAYER_UNGHOST")
+    self.BingoFrame:RegisterEvent("CHAT_MSG_ADDON")
+    self.BingoFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+
+    C_ChatInfo.RegisterAddonMessagePrefix(ADDON_MSG_PREFIX)
+
+    self.BingoFrame:SetFrameLevel(4)
+    self.BingoFrame:SetMovable(true)
+    self.BingoFrame:EnableMouse(true)
+    self.BingoFrame:RegisterForDrag("LeftButton")
+
+    self.BingoFrame:SetWidth(430)
+    self.BingoFrame:SetHeight(500)
+    self.BingoFrame:ClearAllPoints()
+    self.BingoFrame:SetPoint("CENTER")
+    tinsert(UISpecialFrames, self.BingoFrame:GetName())
+
+    self.SessionPlayersFrame = UI.CreateBackdropFrame(
+        "Frame",
+        "BingoSessionPlayersFrame",
+        self.BingoFrame,
+        self.DefaultBackdrop,
+        { 0.1, 0.1, 0.1, 0.9 },
+        { 0.6, 0.6, 0.6, 1 }
+    )
+    self.SessionPlayersFrame:SetWidth(150)
+    self.SessionPlayersFrame:SetHeight(500)
+    self.SessionPlayersFrame:SetPoint("TOPRIGHT", self.BingoFrame, "TOPLEFT", -5, 0)
+
+    self.SessionPlayersFrame.title = UI.CreateFontString(self.SessionPlayersFrame, 14, "OUTLINE", { 1, 0.82, 0, 1 }, "Session Players")
+    self.SessionPlayersFrame.title:SetPoint("TOP", 0, -10)
+
+    self.SessionPlayerNames = {}
+    self.SessionPlayersFrame:Hide()
+
+    self.BingoFrame.text = UI.CreateFontString(self.BingoFrame, 32, "OUTLINE", nil, "Bingo!")
+    self.BingoFrame.text:SetPoint("TOPLEFT", 15, -55)
+    self.BingoFrame.text:SetPoint("BOTTOMRIGHT", -15, 430)
+
+    self.BingoFrameCloseButton = CreateFrame("Button", "BingoFrameCloseButton", self.BingoFrame, "UIPanelCloseButton")
+    self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -6, -6)
+    self.BingoFrameCloseButton:SetScript("OnClick", function()
+        self.BingoFrame:Hide()
+    end)
+
+    self.BingoFrame.version = UI.CreateFontString(self.BingoFrame, 14, "OUTLINESLUG", { 1, 1, 1, 1 }, C_AddOns.GetAddOnMetadata("PartySharkBingo", "Version"))
+    self.BingoFrame.version:SetPoint("TOPRIGHT", self.BingoFrame, "BOTTOMRIGHT", -4, -2)
+
+    StaticPopupDialogs["BINGO_RESETALL_DIALOG"] = {
+        text = "Are you sure you want to reset the bingo card?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        enterClicksFirstButton = true,
+        OnAccept = function()
+            self:ResetBoard()
+        end
+    }
+
+    StaticPopupDialogs["BINGO_SHUFFLE_DIALOG"] = {
+        text = "Shuffling the bingo card will also reset all spaces, do you wish to continue?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        enterClicksFirstButton = true,
+        OnAccept = function()
+            Bingo:LoadDefaultBingoCards()
+            Bingo:ResetBoard()
+            Bingo:LoadBingoCard(Bingo.CurrentBingoCard)
+        end
+    }
+
+    StaticPopupDialogs["BINGO_SHUFFLE_ALL_DIALOG"] = {
+        text = "This will reset and shuffle everyone's bingo boards in the session. Are you sure?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        enterClicksFirstButton = true,
+        OnAccept = function()
+            Bingo:ShuffleAllBoards()
+        end
+    }
+
+    local BUTTON_WIDTH = 90
+    local BUTTON_HEIGHT = 28
+    local BUTTON_SPACING = 5
+    local BUTTON_START_X = 15
+    local BUTTON_Y = -12
+    local nextButtonX = BUTTON_START_X
+
+    self.ResetAllButton = UI.CreateStyledButton(self.BingoFrame, "BingoResetAllButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Reset All")
+    self.ResetAllButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+    self.ResetAllButton:SetScript("OnClick", function()
+        if self:HasAnySquaresChecked() then
+            StaticPopup_Show("BINGO_RESETALL_DIALOG")
+        end
+    end)
+    nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+    self.ShuffleButton = UI.CreateStyledButton(self.BingoFrame, "BingoShuffleButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Shuffle")
+    self.ShuffleButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+    self.ShuffleButton:SetScript("OnClick", function()
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot shuffle during an encounter.")
+            return
+        end
+
+        if self.IsSessionLocked then
+            if IsSessionLeader() then
+                StaticPopup_Show("BINGO_SHUFFLE_ALL_DIALOG")
+            else
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 Session is locked. Cannot shuffle.")
+            end
+            return
+        end
+
+        if self:HasAnySquaresChecked() then
+            StaticPopup_Show("BINGO_SHUFFLE_DIALOG")
+        else
+            self:LoadDefaultBingoCards()
+            self:ResetBoard()
+            self:LoadBingoCard(self.CurrentBingoCard)
+        end
+    end)
+    nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+    self.StartButton = UI.CreateStyledButton(self.BingoFrame, "BingoStartButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Start")
+    self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+    self.StartButton:Hide()
+    self.StartButton:SetScript("OnClick", function()
+        if not IsSessionLeader() then
+            self:UpdateSessionRoleUI()
+            return
+        end
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot start session during an encounter.")
+            return
+        end
+        self:SendLockCommand(true)
+    end)
+    nextButtonX = nextButtonX + BUTTON_WIDTH + BUTTON_SPACING
+
+    self.AddPlayersButton = UI.CreateStyledButton(self.BingoFrame, "BingoAddPlayersButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Add Players")
+    self.AddPlayersButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
+    self.AddPlayersButton:Hide()
+    self.AddPlayersButton:SetScript("OnClick", function()
+        if not IsSessionLeader() then
+            self:UpdateSessionRoleUI()
+            return
+        end
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot add players during an encounter.")
+            return
+        end
+        self:SendLockCommand(true)
+    end)
+
+    self.EndButton = UI.CreateStyledButton(self.BingoFrame, "BingoEndButton", BUTTON_WIDTH, BUTTON_HEIGHT, "End")
+    self.EndButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
+    self.EndButton:Hide()
+    self.EndButton:SetScript("OnClick", function()
+        if not IsSessionLeader() then
+            self:UpdateSessionRoleUI()
+            return
+        end
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot end session during an encounter.")
+            return
+        end
+        if IsInGroup() then
+            self:SendLockCommand(false)
+        else
+            self:SetSessionLocked(false, nil)
+        end
+    end)
+
+    self.LockIndicator = UI.CreateFontString(self.BingoFrame, 18, "OUTLINE", { 1, 0.82, 0, 1 }, "In session")
+    self.LockIndicator:SetPoint("BOTTOM", self.BingoFrame, "TOP", 0, 4)
+    self.LockIndicator:Hide()
+
+    StaticPopupDialogs["BINGO_LEAVE_SESSION_DIALOG"] = {
+        text = "Leaving the session will remove your chance to win for the week, are you sure you want to leave?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        OnAccept = function()
+            Bingo:LeaveSession()
+        end
+    }
+
+    self.LeaveSessionButton = UI.CreateStyledButton(self.BingoFrame, "BingoLeaveSessionButton", BUTTON_WIDTH, BUTTON_HEIGHT, "Leave")
+    self.LeaveSessionButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
+    self.LeaveSessionButton:Hide()
+    self.LeaveSessionButton:SetScript("OnClick", function()
+        if self.InEncounter then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot leave session during an encounter.")
+            return
+        end
+        StaticPopup_Show("BINGO_LEAVE_SESSION_DIALOG")
+    end)
+
+    StaticPopupDialogs["BINGO_WIN_DIALOG"] = {
+        text = "|cffFFC125BINGO!|cffffffff Congratulations, you won! Would you like to reset the card?",
+        button1 = YES,
+        button2 = NO,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        enterClicksFirstButton = true,
+        OnAccept = function()
+            self:ResetBoard()
+        end
+    }
+end
+
+function Bingo:SetButtonChecked(button, checked)
+    button.isChecked = checked
+    if checked then
+        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonDisabled.tga")
+    else
+        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
+    end
+end
+
+function Bingo:IsButtonChecked(button)
+    return button.isChecked
+end
+
+function Bingo:CreateButton(x, y, name)
+    local bingoButton = CreateFrame("Button", name, self.BingoFrame, "UIPanelButtonTemplate")
+    bingoButton:SetSize(80, 80)
+    bingoButton:SetPoint("TOPLEFT", x, y)
+    bingoButton.isChecked = false
+
+    bingoButton:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
+    bingoButton:SetPushedTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonPushed.tga")
+    bingoButton:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
+    bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
+
+    bingoButton.text = UI.CreateFontString(bingoButton, 10, "OUTLINE")
+    bingoButton.text:SetPoint("TOPLEFT", 5, -5)
+    bingoButton.text:SetPoint("BOTTOMRIGHT", -5, 5)
+
+    bingoButton:SetScript("OnClick", function()
+        if bingoButton.isChecked then
+            Bingo:SetButtonChecked(bingoButton, false)
+            Bingo.CurrentBingoCardBingo = Bingo:CheckForBingo()
+        else
+            Bingo:SetButtonChecked(bingoButton, true)
+            Bingo:SaveBingoCard(bingoButton.cardName, bingoButton.name, bingoButton.index)
+            if not Bingo.CurrentBingoCardBingo then
+                if Bingo:CheckForBingo() then
+                    StaticPopup_Show("BINGO_WIN_DIALOG")
+                end
+            end
+        end
+    end)
+
+    return bingoButton
+end
+
+function Bingo:CreateButtons()
+    local buttonSize = 80
+    local startX = 15
+    local startY = -85
+    local buttonIndex = 1
+
+    for row = 1, 5 do
+        for col = 1, 5 do
+            local x = startX + (col - 1) * buttonSize
+            local y = startY - (row - 1) * buttonSize
+
+            self.BingoButtons[buttonIndex] = self:CreateButton(x, y, "BingoButton" .. buttonIndex)
+            self.BingoButtons[buttonIndex].index = buttonIndex
+            buttonIndex = buttonIndex + 1
+        end
+    end
+
+    self.CreateButton = function() end
+    self.CreateButtons = function() end
+end
+
+function Bingo:SetCardTitle(cardName)
+    self.BingoFrame.text:SetFont(FONT_PATH, BingoCards[cardName]["TitleSize"] or 20, "OUTLINE")
+    self.BingoFrame.text:SetText(BingoCards[cardName]["Title"] or "Bingo!")
+end
+
+function Bingo:SetFreeSpace(cardName)
+    self.BingoButtons[13].text:SetText(BingoCards[cardName]["FreeSpace"] or "Free Space")
+    self.BingoButtons[13].text:SetFont(
+        FONT_PATH,
+        (BingoCards[cardName]["FreeSpaceSize"] or BingoCards[cardName]["Size25"] or BingoCards[cardName]["FontSize"] or 10),
+        "OUTLINE"
+    )
+    self:SetButtonChecked(self.BingoButtons[13], true)
+    self.BingoButtons[13]:Disable()
+end
+
+function Bingo:LoadButton(cardName, buttonID, cardID, enabled, persistedSize)
+    local entry = BingoCards[cardName][cardID]
+    local text = entry and entry.value or cardID
+    local size = persistedSize or (entry and entry.size) or BingoCards[cardName]["FontSize"] or 10
+
+    self.BingoButtons[buttonID].cardName = cardName
+    self.BingoButtons[buttonID].name = text
+    self.BingoButtons[buttonID].size = size
+
+    self.BingoButtons[buttonID].text:SetText(text)
+    self.BingoButtons[buttonID].text:SetFont(FONT_PATH, size, "OUTLINE")
+    self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
+end
+
+function Bingo:UpdateSessionPlayersDisplay()
+    if not IsSessionLeader() or not self.SessionPlayersFrame then return end
+
+    for _, fontString in pairs(self.SessionPlayerNames) do
+        fontString:Hide()
+        fontString:SetText("")
+    end
+
+    local sortedNames = {}
+    for name, confirmed in pairs(self.SessionPlayers) do
+        if confirmed then
+            table.insert(sortedNames, name)
+        end
+    end
+    table.sort(sortedNames)
+
+    local yOffset = -30
+    for i, name in ipairs(sortedNames) do
+        if not self.SessionPlayerNames[i] then
+            self.SessionPlayerNames[i] = UI.CreateFontString(self.SessionPlayersFrame, 12, "OUTLINE")
+            self.SessionPlayerNames[i]:SetPoint("TOPLEFT", 10, yOffset)
+            self.SessionPlayerNames[i]:SetPoint("TOPRIGHT", -10, yOffset)
+            self.SessionPlayerNames[i]:SetJustifyH("LEFT")
+        end
+
+        local coloredName = self:GetClassColoredName(name)
+        self.SessionPlayerNames[i]:SetText(coloredName)
+        self.SessionPlayerNames[i]:SetPoint("TOPLEFT", 10, yOffset)
+        self.SessionPlayerNames[i]:Show()
+
+        yOffset = yOffset - 18
+    end
+
+    if self.SessionPlayersFrame.title then
+        local count = #sortedNames
+        self.SessionPlayersFrame.title:SetText("Session Players (" .. count .. ")")
+    end
+end
+
+function Bingo:UpdateSessionRoleUI()
+    local isSessionLeader = IsSessionLeader()
+
+    if self.SessionPlayersFrame then
+        if isSessionLeader and self.IsSessionLocked then
+            self.SessionPlayersFrame:Show()
+            self:UpdateSessionPlayersDisplay()
+        else
+            self.SessionPlayersFrame:Hide()
+        end
+    end
+
+    if self.StartButton then
+        if isSessionLeader and IsInGroup() and not self.IsSessionLocked then
+            self.StartButton:Show()
+        else
+            self.StartButton:Hide()
+        end
+    end
+
+    if self.EndButton then
+        if isSessionLeader and self.IsSessionLocked then
+            self.EndButton:Show()
+        else
+            self.EndButton:Hide()
+        end
+    end
+
+    if self.AddPlayersButton then
+        if isSessionLeader and IsInGroup() and self.IsSessionLocked then
+            self.AddPlayersButton:Show()
+        else
+            self.AddPlayersButton:Hide()
+        end
+    end
+
+    if self.LeaveSessionButton then
+        if not isSessionLeader and self.IsSessionLocked then
+            self.LeaveSessionButton:Show()
+        else
+            self.LeaveSessionButton:Hide()
+        end
+    end
+
+    self:UpdateShuffleButtonState()
+end
+
+function Bingo:UpdateShuffleButtonState()
+    if not self.ShuffleButton then return end
+
+    local isSessionLeader = IsSessionLeader()
+
+    if self.IsSessionLocked then
+        if isSessionLeader then
+            self.ShuffleButton:Enable()
+            self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+            self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)
+            self.ShuffleButton.text:SetText("Shuffle All")
+        else
+            self.ShuffleButton:Disable()
+            self.ShuffleButton:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+            self.ShuffleButton.text:SetTextColor(0.5, 0.5, 0.5, 1)
+        end
+
+        if self.LockIndicator then
+            if isSessionLeader then
+                self.LockIndicator:Hide()
+            else
+                self.LockIndicator:Show()
+                self.LockIndicator:SetText("In session started by " .. (self.SessionLockedBy or "leader"))
+            end
+        end
+    else
+        self.ShuffleButton.text:SetText("Shuffle")
+        self.ShuffleButton:Enable()
+        self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
+        self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)
+
+        if self.LockIndicator then
+            self.LockIndicator:Hide()
+        end
+    end
+end

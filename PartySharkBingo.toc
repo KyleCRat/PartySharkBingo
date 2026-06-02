@@ -10,5 +10,8 @@
 libs\LibStub\LibStub.lua
 libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 
+Core.lua
+Data.lua
+UI.lua
 PartySharkBingo.lua
 SlashCommands.lua

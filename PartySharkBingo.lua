@@ -74,6 +74,18 @@ local function IsSessionLeader()
     return false
 end
 
+local function GetGroupAddonChannel()
+    if IsInRaid() then
+        return "RAID"
+    end
+
+    if IsInGroup() then
+        return "PARTY"
+    end
+
+    return nil
+end
+
 -- Create a styled button that matches our dark UI theme
 local function CreateStyledButton(parent, name, width, height, text)
     local button = CreateFrame("Button", name, parent, BackdropTemplateMixin and "BackdropTemplate")
@@ -1083,10 +1095,8 @@ end
 
 -- Session locking methods
 function Bingo:SendLockCommand(locked)
-    if not IsInGroup() then return end
-
     local message = locked and "LOCK" or "UNLOCK"
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, "RAID")
+    self:SendSessionMessage(message)
 end
 
 function Bingo:GetClassColoredName(fullName)
@@ -1181,24 +1191,27 @@ function Bingo:HandleAddonMessage(message, sender)
     end
 end
 
+function Bingo:SendSessionMessage(message)
+    local channel = GetGroupAddonChannel()
+    if channel then
+        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, message, channel)
+    end
+end
+
 function Bingo:SendJoinMessage()
-    if not IsInGroup() then return end
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "JOIN", "RAID")
+    self:SendSessionMessage("JOIN")
 end
 
 function Bingo:SendNoSessionMessage()
-    if not IsInGroup() then return end
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "NOSESSION", "RAID")
+    self:SendSessionMessage("NOSESSION")
 end
 
 function Bingo:SendPingMessage()
-    if not IsInGroup() then return end
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "PING", "RAID")
+    self:SendSessionMessage("PING")
 end
 
 function Bingo:SendShuffleMessage()
-    if not IsInGroup() then return end
-    C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "SHUFFLE", "RAID")
+    self:SendSessionMessage("SHUFFLE")
 end
 
 function Bingo:ShuffleAllBoards()
@@ -1394,9 +1407,7 @@ end
 
 function Bingo:LeaveSession()
     -- Send leave message to leader
-    if IsInGroup() then
-        C_ChatInfo.SendAddonMessage(ADDON_MSG_PREFIX, "LEAVE", "RAID")
-    end
+    self:SendSessionMessage("LEAVE")
 
     -- Clear local lock state
     self.IsSessionLocked = false

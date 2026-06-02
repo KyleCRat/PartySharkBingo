@@ -223,7 +223,6 @@ function Bingo:SaveBingoCard(cardName, name, index)
         for i, button in pairs(self.BingoButtons) do
             persistedBoard[i] = {}
             persistedBoard[i]['name'] = button.name
-            persistedBoard[i]['size'] = button.size
             persistedBoard[i]['enabled'] = not button.isChecked
         end
 
@@ -265,8 +264,7 @@ function Bingo:LoadBingoCard(cardName)
                             cardName,
                             i,
                             persisted['name'],
-                            persisted['enabled'],
-                            persisted['size']
+                            persisted['enabled']
                         )
                     end
                 end

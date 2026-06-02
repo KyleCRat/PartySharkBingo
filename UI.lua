@@ -13,6 +13,13 @@ local SCALE_STEP = 5
 local SCALE_BUTTON_WIDTH = 90
 local SCALE_BUTTON_HEIGHT = 28
 local BOARD_LEFT_X = 0
+local BINGO_BUTTON_SIZE = 80
+local BINGO_BUTTON_TEXT_PADDING = 5
+local BINGO_BUTTON_MIN_FONT_SIZE = 8
+local BINGO_BUTTON_MAX_FONT_SIZE = 28
+local FONT_FIT_WIDTH_FUDGE = 4
+local FONT_FIT_HEIGHT_FUDGE = 6
+local FONT_MEASURE_WIDTH = 10000
 
 local function GetScalePercent(scale)
     scale = tonumber(scale) or 1
@@ -36,6 +43,46 @@ end
 
 local function FormatScaleButtonText(value)
     return "Scale: " .. value .. "%"
+end
+
+local function PrepareWrappedFontString(fontString)
+    if fontString.SetWordWrap then
+        fontString:SetWordWrap(true)
+    end
+
+    if fontString.SetNonSpaceWrap then
+        fontString:SetNonSpaceWrap(false)
+    end
+end
+
+local function GetFontStringWidth(fontString)
+    if fontString.GetUnboundedStringWidth then
+        return fontString:GetUnboundedStringWidth()
+    end
+
+    return fontString:GetStringWidth()
+end
+
+local measureFontStrings = {}
+
+local function GetMeasureFontString(index)
+    if not measureFontStrings[index] then
+        measureFontStrings[index] = UIParent:CreateFontString(nil, "BACKGROUND")
+        measureFontStrings[index]:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 0, -1000)
+        measureFontStrings[index]:SetAlpha(0)
+    end
+
+    PrepareWrappedFontString(measureFontStrings[index])
+
+    return measureFontStrings[index]
+end
+
+local function GetPositiveDimension(value, fallback)
+    if not value or value <= 0 then
+        return fallback
+    end
+
+    return value
 end
 
 function UI.CreateBackdropFrame(frameType, name, parent, backdrop, bgColor, borderColor, template)
@@ -66,6 +113,58 @@ function UI.CreateFontString(parent, size, flags, color, text)
     end
 
     return fontString
+end
+
+function UI.FitFontStringToBox(fontString, text, fontPath, fontFlags, maxWidth, maxHeight, minSize, maxSize)
+    text = tostring(text or "")
+    maxWidth = math.max(1, maxWidth or 1)
+    maxHeight = math.max(1, maxHeight or 1)
+    minSize = math.floor((minSize or BINGO_BUTTON_MIN_FONT_SIZE) + 0.5)
+    maxSize = math.floor((maxSize or BINGO_BUTTON_MAX_FONT_SIZE) + 0.5)
+
+    if maxSize < minSize then
+        maxSize = minSize
+    end
+
+    PrepareWrappedFontString(fontString)
+
+    local fitWidth = math.max(1, maxWidth - FONT_FIT_WIDTH_FUDGE)
+    local fitHeight = math.max(1, maxHeight - FONT_FIT_HEIGHT_FUDGE)
+    local bestSize = minSize
+    local measure = GetMeasureFontString(1)
+    local wordMeasure = GetMeasureFontString(2)
+
+    measure:SetWidth(maxWidth)
+
+    for size = maxSize, minSize, -1 do
+        local longestWordFits = true
+
+        wordMeasure:SetWidth(FONT_MEASURE_WIDTH)
+        wordMeasure:SetFont(fontPath, size, fontFlags)
+
+        for word in string.gmatch(text, "%S+") do
+            wordMeasure:SetText(word)
+
+            if GetFontStringWidth(wordMeasure) > fitWidth then
+                longestWordFits = false
+                break
+            end
+        end
+
+        measure:SetFont(fontPath, size, fontFlags)
+        measure:SetText(text)
+
+        if longestWordFits and measure:GetStringHeight() <= fitHeight then
+            bestSize = size
+            break
+        end
+    end
+
+    fontString:SetWidth(maxWidth)
+    fontString:SetFont(fontPath, bestSize, fontFlags)
+    fontString:SetText(text)
+
+    return bestSize
 end
 
 function UI.CreateStyledButton(parent, name, width, height, text)
@@ -426,7 +525,7 @@ end
 
 function Bingo:CreateButton(x, y, name)
     local bingoButton = CreateFrame("Button", name, self.BingoFrame, "UIPanelButtonTemplate")
-    bingoButton:SetSize(80, 80)
+    bingoButton:SetSize(BINGO_BUTTON_SIZE, BINGO_BUTTON_SIZE)
     bingoButton:SetPoint("TOPLEFT", x, y)
     bingoButton.isChecked = false
 
@@ -436,8 +535,10 @@ function Bingo:CreateButton(x, y, name)
     bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
 
     bingoButton.text = UI.CreateFontString(bingoButton, 10, "OUTLINE")
-    bingoButton.text:SetPoint("TOPLEFT", 5, -5)
-    bingoButton.text:SetPoint("BOTTOMRIGHT", -5, 5)
+    bingoButton.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
+    bingoButton.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
+    bingoButton.text:SetJustifyH("CENTER")
+    bingoButton.text:SetJustifyV("MIDDLE")
 
     bingoButton:SetScript("OnClick", function()
         if bingoButton.isChecked then
@@ -458,7 +559,7 @@ function Bingo:CreateButton(x, y, name)
 end
 
 function Bingo:CreateButtons()
-    local buttonSize = 80
+    local buttonSize = BINGO_BUTTON_SIZE
     local startX = 15
     local startY = -85
     local buttonIndex = 1
@@ -478,33 +579,42 @@ function Bingo:CreateButtons()
     self.CreateButtons = function() end
 end
 
+function Bingo:FitBingoButtonText(button, text)
+    local maxWidth = GetPositiveDimension(button:GetWidth(), BINGO_BUTTON_SIZE) - BINGO_BUTTON_TEXT_PADDING * 2
+    local maxHeight = GetPositiveDimension(button:GetHeight(), BINGO_BUTTON_SIZE) - BINGO_BUTTON_TEXT_PADDING * 2
+
+    UI.FitFontStringToBox(
+        button.text,
+        text,
+        FONT_PATH,
+        "OUTLINE",
+        maxWidth,
+        maxHeight,
+        BINGO_BUTTON_MIN_FONT_SIZE,
+        BINGO_BUTTON_MAX_FONT_SIZE
+    )
+end
+
 function Bingo:SetCardTitle(cardName)
     self.BingoFrame.text:SetFont(FONT_PATH, BingoCards[cardName]["TitleSize"] or 20, "OUTLINE")
     self.BingoFrame.text:SetText(BingoCards[cardName]["Title"] or "Bingo!")
 end
 
 function Bingo:SetFreeSpace(cardName)
-    self.BingoButtons[13].text:SetText(BingoCards[cardName]["FreeSpace"] or "Free Space")
-    self.BingoButtons[13].text:SetFont(
-        FONT_PATH,
-        (BingoCards[cardName]["FreeSpaceSize"] or BingoCards[cardName]["Size25"] or BingoCards[cardName]["FontSize"] or 10),
-        "OUTLINE"
-    )
+    local text = BingoCards[cardName]["FreeSpace"] or "Free Space"
+    self:FitBingoButtonText(self.BingoButtons[13], text)
     self:SetButtonChecked(self.BingoButtons[13], true)
     self.BingoButtons[13]:Disable()
 end
 
-function Bingo:LoadButton(cardName, buttonID, cardID, enabled, persistedSize)
+function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
     local entry = BingoCards[cardName][cardID]
-    local text = entry and entry.value or cardID
-    local size = persistedSize or (entry and entry.size) or BingoCards[cardName]["FontSize"] or 10
+    local text = type(entry) == "table" and entry.value or entry or cardID
 
     self.BingoButtons[buttonID].cardName = cardName
     self.BingoButtons[buttonID].name = text
-    self.BingoButtons[buttonID].size = size
 
-    self.BingoButtons[buttonID].text:SetText(text)
-    self.BingoButtons[buttonID].text:SetFont(FONT_PATH, size, "OUTLINE")
+    self:FitBingoButtonText(self.BingoButtons[buttonID], text)
     self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
 end
 

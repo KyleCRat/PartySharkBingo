@@ -2,7 +2,8 @@ local _, ns = ...
 local Bingo = ns.Bingo
 local FONT_PATH = ns.FONT_PATH
 local ADDON_MSG_PREFIX = ns.ADDON_MSG_PREFIX
-local IsSessionLeader = ns.IsSessionLeader
+local CanManageSession = ns.CanManageSession
+local IsSessionOwner = ns.IsSessionOwner
 
 local UI = ns.UI or {}
 ns.UI = UI
@@ -404,7 +405,7 @@ function Bingo:CreateFrames()
         end
 
         if self.IsSessionLocked then
-            if IsSessionLeader() then
+            if IsSessionOwner() then
                 StaticPopup_Show("BINGO_SHUFFLE_ALL_DIALOG")
             else
                 print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 Session is locked. Cannot shuffle.")
@@ -426,7 +427,7 @@ function Bingo:CreateFrames()
     self.StartButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.StartButton:Hide()
     self.StartButton:SetScript("OnClick", function()
-        if not IsSessionLeader() then
+        if not CanManageSession() then
             self:UpdateSessionRoleUI()
             return
         end
@@ -442,7 +443,7 @@ function Bingo:CreateFrames()
     self.AddPlayersButton:SetPoint("TOPLEFT", nextButtonX, BUTTON_Y)
     self.AddPlayersButton:Hide()
     self.AddPlayersButton:SetScript("OnClick", function()
-        if not IsSessionLeader() then
+        if not IsSessionOwner() then
             self:UpdateSessionRoleUI()
             return
         end
@@ -457,7 +458,7 @@ function Bingo:CreateFrames()
     self.EndButton:SetPoint("TOPLEFT", self.StartButton, "TOPLEFT", 0, 0)
     self.EndButton:Hide()
     self.EndButton:SetScript("OnClick", function()
-        if not IsSessionLeader() then
+        if not IsSessionOwner() then
             self:UpdateSessionRoleUI()
             return
         end
@@ -769,7 +770,7 @@ function Bingo:ShowTilePreviewFrame(cardName)
 end
 
 function Bingo:UpdateSessionPlayersDisplay()
-    if not IsSessionLeader() or not self.SessionPlayersFrame then return end
+    if not IsSessionOwner() or not self.SessionPlayersFrame then return end
 
     for _, fontString in pairs(self.SessionPlayerNames) do
         fontString:Hide()
@@ -808,10 +809,11 @@ function Bingo:UpdateSessionPlayersDisplay()
 end
 
 function Bingo:UpdateSessionRoleUI()
-    local isSessionLeader = IsSessionLeader()
+    local canManageSession = CanManageSession()
+    local isSessionOwner = IsSessionOwner()
 
     if self.SessionPlayersFrame then
-        if isSessionLeader and self.IsSessionLocked then
+        if isSessionOwner and self.IsSessionLocked then
             self.SessionPlayersFrame:Show()
             self:UpdateSessionPlayersDisplay()
         else
@@ -820,7 +822,7 @@ function Bingo:UpdateSessionRoleUI()
     end
 
     if self.StartButton then
-        if isSessionLeader and IsInGroup() and not self.IsSessionLocked then
+        if canManageSession and IsInGroup() and not self.IsSessionLocked then
             self.StartButton:Show()
         else
             self.StartButton:Hide()
@@ -828,7 +830,7 @@ function Bingo:UpdateSessionRoleUI()
     end
 
     if self.EndButton then
-        if isSessionLeader and self.IsSessionLocked then
+        if isSessionOwner and self.IsSessionLocked and IsInGroup() then
             self.EndButton:Show()
         else
             self.EndButton:Hide()
@@ -836,7 +838,7 @@ function Bingo:UpdateSessionRoleUI()
     end
 
     if self.AddPlayersButton then
-        if isSessionLeader and IsInGroup() and self.IsSessionLocked then
+        if isSessionOwner and IsInGroup() and self.IsSessionLocked then
             self.AddPlayersButton:Show()
         else
             self.AddPlayersButton:Hide()
@@ -844,7 +846,7 @@ function Bingo:UpdateSessionRoleUI()
     end
 
     if self.LeaveSessionButton then
-        if not isSessionLeader and self.IsSessionLocked then
+        if self.IsSessionLocked and (not isSessionOwner or not IsInGroup()) then
             self.LeaveSessionButton:Show()
         else
             self.LeaveSessionButton:Hide()
@@ -857,10 +859,10 @@ end
 function Bingo:UpdateShuffleButtonState()
     if not self.ShuffleButton then return end
 
-    local isSessionLeader = IsSessionLeader()
+    local isSessionOwner = IsSessionOwner()
 
     if self.IsSessionLocked then
-        if isSessionLeader then
+        if isSessionOwner then
             self.ShuffleButton:Enable()
             self.ShuffleButton:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
             self.ShuffleButton.text:SetTextColor(1, 0.82, 0, 1)
@@ -872,7 +874,7 @@ function Bingo:UpdateShuffleButtonState()
         end
 
         if self.LockIndicator then
-            if isSessionLeader then
+            if isSessionOwner then
                 self.LockIndicator:Hide()
             else
                 self.LockIndicator:Show()

@@ -8,6 +8,37 @@ ns.ADDON_MSG_PREFIX = ADDON_MSG_PREFIX
 
 local Bingo
 
+local function GetCurrentRealmName()
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName()
+    if realm and realm ~= "" then
+        return realm
+    end
+
+    realm = GetRealmName and GetRealmName()
+    if realm and realm ~= "" then
+        return realm:gsub("%s+", "")
+    end
+
+    return nil
+end
+
+local function NormalizeFullName(name)
+    if not name or name == "" then
+        return nil
+    end
+
+    if name:find("-", 1, true) then
+        return name
+    end
+
+    local realm = GetCurrentRealmName()
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+
+    return name
+end
+
 -- Helper to get full name with realm (always includes realm for consistency)
 local function GetFullUnitName(unit)
     local name, realm = UnitName(unit)
@@ -15,7 +46,7 @@ local function GetFullUnitName(unit)
     if realm and realm ~= "" then
         return name .. "-" .. realm
     end
-    return name .. "-" .. GetNormalizedRealmName()
+    return NormalizeFullName(name)
 end
 
 -- Check if any player name from a list is in the current group
@@ -58,9 +89,7 @@ local function IsAnyPlayerInGroup(players)
     return false
 end
 
-local function IsSessionLeader()
-    local settings = Bingo and Bingo:GetSettings()
-
+local function CanManageSession()
     if IsInRaid() then
         return UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
     end
@@ -69,11 +98,24 @@ local function IsSessionLeader()
         return UnitIsGroupLeader("player")
     end
 
-    if settings and settings.IsSessionLocked then
-        return settings.SessionLockedBy == GetFullUnitName("player")
+    return false
+end
+
+local function IsSessionOwner()
+    local settings = Bingo and Bingo:GetSettings()
+    local isLocked = Bingo and Bingo.IsSessionLocked
+    local lockedBy = Bingo and Bingo.SessionLockedBy
+
+    if settings then
+        isLocked = isLocked or settings.IsSessionLocked
+        lockedBy = lockedBy or settings.SessionLockedBy
     end
 
-    return false
+    if not isLocked or not lockedBy then
+        return false
+    end
+
+    return NormalizeFullName(lockedBy) == GetFullUnitName("player")
 end
 
 local function GetGroupAddonChannel()
@@ -89,7 +131,9 @@ local function GetGroupAddonChannel()
 end
 
 ns.GetFullUnitName = GetFullUnitName
-ns.IsSessionLeader = IsSessionLeader
+ns.NormalizeFullName = NormalizeFullName
+ns.CanManageSession = CanManageSession
+ns.IsSessionOwner = IsSessionOwner
 
 local DEFAULT_SETTINGS = {
     PrintVersionOnLoad = false,
@@ -310,10 +354,10 @@ local function OnAddonLoaded(frame, loadedAddon)
         Bingo:SetSessionLocked(settings.IsSessionLocked, settings.SessionLockedBy)
         Bingo:UpdateSessionPlayersDisplay()
 
-        if IsSessionLeader() and IsInGroup() then
+        if IsSessionOwner() and IsInGroup() then
             Bingo:SendPingMessage()
         end
-    elseif IsSessionLeader() and IsInGroup() and Bingo.StartButton then
+    elseif CanManageSession() and IsInGroup() and Bingo.StartButton then
         Bingo.StartButton:Show()
     end
 
@@ -568,11 +612,14 @@ function Bingo:GetClassColoredName(fullName)
 end
 
 function Bingo:HandleAddonMessage(message, sender)
-    -- sender already includes realm (e.g., "Player-Realm")
-    local senderFullName = sender
-    local isSessionLeader = IsSessionLeader()
+    local senderFullName = NormalizeFullName(sender)
+    if not senderFullName then return end
 
-    if message == "PING" and not isSessionLeader then
+    local isSessionOwner = IsSessionOwner()
+    local isFromSelf = senderFullName == GetFullUnitName("player")
+    local isFromCurrentOwner = self.IsSessionLocked and senderFullName == self.SessionLockedBy
+
+    if message == "PING" and not isSessionOwner then
         -- Leader is requesting session status from all players
         if self.IsSessionLocked then
             self:SendJoinMessage()
@@ -581,13 +628,13 @@ function Bingo:HandleAddonMessage(message, sender)
         end
     elseif message == "LOCK" then
         self:SetSessionLocked(true, senderFullName)
-        -- Send JOIN response to leader (only if not the leader)
-        if not isSessionLeader then
+        -- Send JOIN response to the session owner.
+        if not isFromSelf then
             self:SendJoinMessage()
         end
-    elseif message == "UNLOCK" then
+    elseif message == "UNLOCK" and isFromCurrentOwner then
         self:SetSessionLocked(false, nil)
-    elseif message == "JOIN" and isSessionLeader then
+    elseif message == "JOIN" and isSessionOwner then
         if not self.IsSessionLocked then
             -- Leader has no active session, send UNLOCK to release the follower
             self:SendLockCommand(false)
@@ -599,11 +646,11 @@ function Bingo:HandleAddonMessage(message, sender)
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " joined the session.")
         end
         self:AddSessionPlayer(senderFullName)
-    elseif message == "LEAVE" and isSessionLeader then
+    elseif message == "LEAVE" and isSessionOwner then
         local coloredName = self:GetClassColoredName(senderFullName)
         print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " left the session.")
         self:RemoveSessionPlayer(senderFullName)
-    elseif message == "NOSESSION" and isSessionLeader then
+    elseif message == "NOSESSION" and isSessionOwner then
         local coloredName = self:GetClassColoredName(senderFullName)
         -- Remove from session if they were in it (they left while out of group)
         if self.SessionPlayers[senderFullName] then
@@ -613,12 +660,12 @@ function Bingo:HandleAddonMessage(message, sender)
             -- Only announce "not in session" if they weren't previously in it
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff " .. coloredName .. " has joined the party and is not in the session!")
         end
-    elseif message == "SHUFFLE" then
+    elseif message == "SHUFFLE" and isFromCurrentOwner then
         -- Leader has requested all boards be shuffled
         self:LoadDefaultBingoCards()
         self:ResetBoard()
         self:LoadBingoCard(self.CurrentBingoCard)
-        if isSessionLeader then
+        if IsSessionOwner() then
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Shuffled all boards in the session.")
         else
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Your board has been shuffled by the session leader.")
@@ -655,7 +702,7 @@ function Bingo:ShuffleAllBoards()
 end
 
 function Bingo:AddSessionPlayer(name)
-    if not IsSessionLeader() then return end
+    if not IsSessionOwner() then return end
 
     -- Add to session players list or confirm if pending
     if self.SessionPlayers[name] ~= true then
@@ -666,7 +713,7 @@ function Bingo:AddSessionPlayer(name)
 end
 
 function Bingo:RemoveSessionPlayer(name)
-    if not IsSessionLeader() then return end
+    if not IsSessionOwner() then return end
 
     if self.SessionPlayers[name] then
         self.SessionPlayers[name] = nil
@@ -683,35 +730,27 @@ end
 
 function Bingo:OnGroupRosterUpdate()
     local isInGroup = IsInGroup()
-    local isSessionLeader = IsSessionLeader()
+    local isSessionOwner = IsSessionOwner()
+    local canManageSession = CanManageSession()
 
     -- Detect when we join a group
     if isInGroup and not self.WasInGroup then
-        if isSessionLeader then
-            if self.IsSessionLocked then
-                -- Leader joined group with active session, ping to get status from all players
-                self:SendPingMessage()
-            else
-                -- Leader joined group without active session, send UNLOCK to release any followers
-                self:SendLockCommand(false)
-                -- Show Start button now that we're in a group
-                if self.StartButton then self.StartButton:Show() end
-            end
+        if self.IsSessionLocked and isSessionOwner then
+            -- Session owner joined group with active session; get status from all players.
+            self:SendPingMessage()
+        elseif self.IsSessionLocked then
+            -- We are in a session; confirm with the session owner.
+            self:SendJoinMessage()
         else
-            -- We just joined a group, notify based on session state
-            if self.IsSessionLocked then
-                -- We're in a session, send JOIN to confirm
-                self:SendJoinMessage()
-            else
-                -- We're not in a session, send NOSESSION
-                self:SendNoSessionMessage()
-            end
+            -- We are not in a session; notify any active owner in the group.
+            self:SendNoSessionMessage()
+            if canManageSession and self.StartButton then self.StartButton:Show() end
         end
     end
 
     -- Detect when we leave a group (leader only - hide Start button when solo)
     if not isInGroup and self.WasInGroup then
-        if isSessionLeader and not self.IsSessionLocked then
+        if canManageSession and not self.IsSessionLocked then
             if self.StartButton then self.StartButton:Hide() end
         end
     end
@@ -722,6 +761,8 @@ end
 
 function Bingo:SetSessionLocked(locked, lockedBy)
     local wasAlreadyLocked = self.IsSessionLocked
+    lockedBy = NormalizeFullName(lockedBy)
+    local previousLockedBy = NormalizeFullName(self.SessionLockedBy)
 
     self.IsSessionLocked = locked
     self.SessionLockedBy = lockedBy
@@ -739,23 +780,28 @@ function Bingo:SetSessionLocked(locked, lockedBy)
     self:UpdateSessionRoleUI()
 
     if locked then
-        if wasAlreadyLocked then
-            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Adding players to session.")
+        if wasAlreadyLocked and previousLockedBy == lockedBy then
+            if IsSessionOwner() then
+                print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Adding players to session.")
+            end
+        elseif wasAlreadyLocked then
+            print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session Started by " .. (lockedBy or "leader") .. ", Boards are locked!")
         else
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session Started by " .. (lockedBy or "leader") .. ", Boards are locked!")
         end
-    else
+    elseif wasAlreadyLocked then
         print("|cffFFC125" .. self.ADDON_NAME .. "|cffffffff Session ended.")
     end
 end
 
 function Bingo:LeaveSession()
-    -- Send leave message to leader
+    -- Notify the session owner when a group channel is available.
     self:SendSessionMessage("LEAVE")
 
     -- Clear local lock state
     self.IsSessionLocked = false
     self.SessionLockedBy = nil
+    self:ClearSessionPlayers()
 
     -- Persist and hide leave button
     local settings = self:EnsureSettings()

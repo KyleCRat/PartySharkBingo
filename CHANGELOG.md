@@ -2,6 +2,11 @@
 
 All notable changes to Party Shark Bingo will be documented in this file.
 
+## [Unreleased]
+
+### Changes
+- Improve bingo tile text outlines with SLUG rendering and account for outline bounds during automatic sizing.
+
 ## [12.1.0-15] - 2026-08-10
 
 ### Changes

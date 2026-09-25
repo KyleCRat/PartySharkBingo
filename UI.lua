@@ -18,7 +18,8 @@ local BINGO_BUTTON_SIZE = 80
 local BINGO_BUTTON_TEXT_PADDING = 5
 local BINGO_BUTTON_MIN_FONT_SIZE = 8
 local BINGO_BUTTON_MAX_FONT_SIZE = 28
-local FONT_FIT_WIDTH_FUDGE = 4
+local BINGO_TILE_FONT_FLAGS = "OUTLINE, SLUG"
+local FONT_FIT_WIDTH_FUDGE = 6
 local FONT_FIT_HEIGHT_FUDGE = 6
 local FONT_MEASURE_WIDTH = 10000
 local TILE_PREVIEW_COLUMNS = 8
@@ -538,7 +539,7 @@ function Bingo:CreateButton(x, y, name)
     bingoButton:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
     bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
 
-    bingoButton.text = UI.CreateFontString(bingoButton, 10, "OUTLINE")
+    bingoButton.text = UI.CreateFontString(bingoButton, 10, BINGO_TILE_FONT_FLAGS)
     bingoButton.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
     bingoButton.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
     bingoButton.text:SetJustifyH("CENTER")
@@ -591,7 +592,7 @@ function Bingo:FitBingoButtonText(button, text)
         button.text,
         text,
         FONT_PATH,
-        "OUTLINE",
+        BINGO_TILE_FONT_FLAGS,
         maxWidth,
         maxHeight,
         BINGO_BUTTON_MIN_FONT_SIZE,
@@ -633,7 +634,7 @@ local function CreatePreviewTile(parent)
     tile:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
     tile:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
 
-    tile.text = UI.CreateFontString(tile, 10, "OUTLINE")
+    tile.text = UI.CreateFontString(tile, 10, BINGO_TILE_FONT_FLAGS)
     tile.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
     tile.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
     tile.text:SetJustifyH("CENTER")

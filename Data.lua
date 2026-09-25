@@ -74,7 +74,7 @@ local DEFAULT_BINGO_CARDS = {
         { value = "Substances Mentioned" },
         { value = "Don't Die to X; Dies to X" },
         { value = "I got it! I don't got it." },
-        { value = "Rez Dissar", players = { "Dìssar", "Disser ", "Dysser" }},
+        { value = "Rez Dissar", players = { "Dìssar", "Disser", "Dysser" }},
         { value = "Tenc Stalks", players = { "Tencarus", "Tencdh", "Tencmotw", "Tenxarus" }},
         { value = "Where's Pin?", players = { "Pinsassin" }},
         { value = "Shut Up Grun", players = { "Grunmore" }},

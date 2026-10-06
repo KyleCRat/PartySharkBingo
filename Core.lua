@@ -393,7 +393,7 @@ function Bingo:ResetBoard()
     self.BingoButtons[13]:Disable()
 
     self:RemoveSavedBingoCard(self.currentCardName)
-    self.CurrentBingoCardBingo = false
+    self:CheckForBingo(true)
 end
 
 function Bingo:SaveBingoCard(cardName, name, index)
@@ -411,7 +411,7 @@ function Bingo:SaveBingoCard(cardName, name, index)
 
         cards[cardName]['persisted'] = persistedBoard
     else
-        cards[cardName]['persisted'][index]['enabled'] = false
+        cards[cardName]['persisted'][index]['enabled'] = not self.BingoButtons[index].isChecked
     end
 end
 
@@ -494,7 +494,7 @@ function Bingo:LoadBingoCard(cardName)
         self:SetFreeSpace(cardName)
 
         self.CurrentBingoCard = cardName
-        self.CurrentBingoCardBingo = false
+        self:CheckForBingo(true)
 
         return true
     else
@@ -511,7 +511,7 @@ function Bingo:CheckLine(indices)
     return true
 end
 
-function Bingo:CheckForBingo()
+function Bingo:CheckForBingo(silent)
     local lines = {
         -- Horizontal lines
         {name = "Row 1", indices = {1, 2, 3, 4, 5}},
@@ -532,15 +532,27 @@ function Bingo:CheckForBingo()
         {name = "Four Corners", indices = {1, 5, 21, 25}},
     }
 
+    local hadBingo = self.CurrentBingoCardBingo
+    local winningTiles = {}
+    local firstWinningLine
+
     for _, line in ipairs(lines) do
         if self:CheckLine(line.indices) then
-            self.CurrentBingoCardBingo = true
-            self:AnnounceBingo(line.indices, line.name)
-            return true
+            firstWinningLine = firstWinningLine or line
+            for _, index in ipairs(line.indices) do
+                winningTiles[index] = true
+            end
         end
     end
 
-    return false
+    self.CurrentBingoCardBingo = firstWinningLine ~= nil
+    self:UpdateWinningTiles(winningTiles)
+
+    if firstWinningLine and not hadBingo and not silent then
+        self:AnnounceBingo(firstWinningLine.indices, firstWinningLine.name)
+    end
+
+    return self.CurrentBingoCardBingo
 end
 
 function Bingo:AnnounceBingo(winningIndices, lineName)

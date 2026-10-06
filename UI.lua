@@ -15,17 +15,55 @@ local SCALE_BUTTON_WIDTH = 90
 local SCALE_BUTTON_HEIGHT = 28
 local BOARD_LEFT_X = 0
 local BINGO_BUTTON_SIZE = 80
+local BINGO_BUTTON_SPACING = 1
+local BINGO_BOARD_SIZE = BINGO_BUTTON_SIZE * 5 + BINGO_BUTTON_SPACING * 4
+local BINGO_FRAME_WIDTH = BINGO_BOARD_SIZE + 30
+local BINGO_FRAME_HEIGHT = BINGO_BOARD_SIZE + 100
 local BINGO_BUTTON_TEXT_PADDING = 5
 local BINGO_BUTTON_MIN_FONT_SIZE = 8
 local BINGO_BUTTON_MAX_FONT_SIZE = 28
 local BINGO_TILE_FONT_FLAGS = "OUTLINE, SLUG"
+local BINGO_TILE_TEXTURES = {
+    cell = "Interface\\AddOns\\PartySharkBingo\\Imgs\\Cell.tga",
+    glow = "Interface\\AddOns\\PartySharkBingo\\Imgs\\CellOuterGlow.tga",
+    mark = "Interface\\AddOns\\PartySharkBingo\\Imgs\\Mark.tga",
+}
 local FONT_FIT_WIDTH_FUDGE = 6
 local FONT_FIT_HEIGHT_FUDGE = 6
 local FONT_MEASURE_WIDTH = 10000
 local TILE_PREVIEW_COLUMNS = 8
 local TILE_PREVIEW_PADDING = 15
-local TILE_PREVIEW_SPACING = 6
+local TILE_PREVIEW_SPACING = 7
 local TILE_PREVIEW_TITLE_HEIGHT = 42
+local FRAME_BORDER_TEXTURE = "Interface\\AddOns\\PartySharkBingo\\Imgs\\9SliceBorder.tga"
+local FRAME_BORDER_SOURCE_SIZE = 1254
+local FRAME_BORDER_CORNER_SIZE = 24
+local FRAME_BACKGROUND_INSET = 8
+
+local function SetupFrameBorderPiece(container, piece, setupInfo, pieceLayout)
+    local coords = pieceLayout.texCoords
+    piece:SetTexture(FRAME_BORDER_TEXTURE)
+    piece:SetTexCoord(
+        coords[1] / FRAME_BORDER_SOURCE_SIZE,
+        coords[2] / FRAME_BORDER_SOURCE_SIZE,
+        coords[3] / FRAME_BORDER_SOURCE_SIZE,
+        coords[4] / FRAME_BORDER_SOURCE_SIZE
+    )
+    piece:SetSize(FRAME_BORDER_CORNER_SIZE, FRAME_BORDER_CORNER_SIZE)
+end
+
+-- Source pixel coordinates omit the transparent margin and preserve the corner artwork.
+local FRAME_BORDER_LAYOUT = {
+    setupPieceVisualsFunction = SetupFrameBorderPiece,
+    TopLeftCorner = { texCoords = { 46, 160, 56, 170 } },
+    TopRightCorner = { texCoords = { 1094, 1208, 56, 170 } },
+    BottomLeftCorner = { texCoords = { 46, 160, 1084, 1198 } },
+    BottomRightCorner = { texCoords = { 1094, 1208, 1084, 1198 } },
+    TopEdge = { texCoords = { 160, 1094, 56, 170 } },
+    BottomEdge = { texCoords = { 160, 1094, 1084, 1198 } },
+    LeftEdge = { texCoords = { 46, 160, 170, 1084 } },
+    RightEdge = { texCoords = { 1094, 1208, 170, 1084 } },
+}
 
 local function GetScalePercent(scale)
     scale = tonumber(scale) or 1
@@ -103,6 +141,19 @@ function UI.CreateBackdropFrame(frameType, name, parent, backdrop, bgColor, bord
             frame:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
         end
     end
+
+    return frame
+end
+
+function UI.CreateBingoPanel(name, parent, backgroundAlpha)
+    local frame = CreateFrame("Frame", name, parent)
+    local background = frame:CreateTexture(nil, "BACKGROUND")
+    background:SetPoint("TOPLEFT", FRAME_BACKGROUND_INSET, -FRAME_BACKGROUND_INSET)
+    background:SetPoint("BOTTOMRIGHT", -FRAME_BACKGROUND_INSET, FRAME_BACKGROUND_INSET)
+    background:SetTexture(Bingo.DefaultBackdrop.bgFile)
+    background:SetVertexColor(0.1, 0.1, 0.1, backgroundAlpha)
+
+    NineSliceUtil.ApplyLayout(frame, FRAME_BORDER_LAYOUT)
 
     return frame
 end
@@ -252,14 +303,7 @@ function Bingo:SetScale(scale)
 end
 
 function Bingo:CreateFrames()
-    self.BingoFrame = UI.CreateBackdropFrame(
-        "Frame",
-        "BingoFrame",
-        UIParent,
-        self.DefaultBackdrop,
-        { 0.1, 0.1, 0.1, 0.9 },
-        { 0.6, 0.6, 0.6, 1 }
-    )
+    self.BingoFrame = UI.CreateBingoPanel("BingoFrame", UIParent, 0.9)
     self.BingoFrame:SetFrameStrata("HIGH")
     self.BingoFrame:Hide()
 
@@ -283,8 +327,7 @@ function Bingo:CreateFrames()
     self.BingoFrame:EnableMouse(true)
     self.BingoFrame:RegisterForDrag("LeftButton")
 
-    self.BingoFrame:SetWidth(430)
-    self.BingoFrame:SetHeight(500)
+    self.BingoFrame:SetSize(BINGO_FRAME_WIDTH, BINGO_FRAME_HEIGHT)
     self.BingoFrame:ClearAllPoints()
     self.BingoFrame:SetPoint("CENTER")
     tinsert(UISpecialFrames, self.BingoFrame:GetName())
@@ -298,7 +341,7 @@ function Bingo:CreateFrames()
         { 0.6, 0.6, 0.6, 1 }
     )
     self.SessionPlayersFrame:SetWidth(150)
-    self.SessionPlayersFrame:SetHeight(500)
+    self.SessionPlayersFrame:SetHeight(BINGO_FRAME_HEIGHT)
     self.SessionPlayersFrame:SetPoint("TOPRIGHT", self.BingoFrame, "TOPLEFT", -5, 0)
 
     self.SessionPlayersFrame.title = UI.CreateFontString(self.SessionPlayersFrame, 14, "OUTLINE", { 1, 0.82, 0, 1 }, "Session Players")
@@ -309,7 +352,7 @@ function Bingo:CreateFrames()
 
     self.BingoFrame.text = UI.CreateFontString(self.BingoFrame, 32, "OUTLINE", nil, "Bingo!")
     self.BingoFrame.text:SetPoint("TOPLEFT", 15, -55)
-    self.BingoFrame.text:SetPoint("BOTTOMRIGHT", -15, 430)
+    self.BingoFrame.text:SetPoint("BOTTOMRIGHT", -15, BINGO_FRAME_HEIGHT - 70)
 
     self.BingoFrameCloseButton = CreateFrame("Button", "BingoFrameCloseButton", self.BingoFrame, "UIPanelCloseButton")
     self.BingoFrameCloseButton:SetPoint("TOPRIGHT", -6, -6)
@@ -515,48 +558,68 @@ function Bingo:CreateFrames()
     }
 end
 
+local function CreateBingoTile(parent, name)
+    local tile = CreateFrame("Button", name, parent)
+    tile:SetSize(BINGO_BUTTON_SIZE, BINGO_BUTTON_SIZE)
+    tile.isChecked = false
+
+    local cell = tile:CreateTexture(nil, "BACKGROUND")
+    cell:SetAllPoints()
+    cell:SetTexture(BINGO_TILE_TEXTURES.cell)
+
+    tile:SetPushedTexture(BINGO_TILE_TEXTURES.cell)
+    local pushed = tile:GetPushedTexture()
+    pushed:SetAllPoints()
+    pushed:SetDrawLayer("BORDER")
+    pushed:SetVertexColor(0.8, 0.8, 0.8)
+
+    tile.mark = tile:CreateTexture(nil, "ARTWORK")
+    tile.mark:SetAllPoints()
+    tile.mark:SetTexture(BINGO_TILE_TEXTURES.mark)
+    tile.mark:Hide()
+
+    tile:SetHighlightTexture(BINGO_TILE_TEXTURES.glow, "BLEND")
+    tile:GetHighlightTexture():SetAllPoints()
+
+    tile.text = UI.CreateFontString(tile, 10, BINGO_TILE_FONT_FLAGS)
+    tile.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
+    tile.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
+    tile.text:SetJustifyH("CENTER")
+    tile.text:SetJustifyV("MIDDLE")
+
+    return tile
+end
+
 function Bingo:SetButtonChecked(button, checked)
     button.isChecked = checked
-    if checked then
-        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonDisabled.tga")
-    else
-        button:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
-    end
+    button.mark:SetShown(checked)
 end
 
 function Bingo:IsButtonChecked(button)
     return button.isChecked
 end
 
+function Bingo:UpdateWinningTiles(winningTiles)
+    for index, button in pairs(self.BingoButtons) do
+        if winningTiles[index] then
+            button:LockHighlight()
+        else
+            button:UnlockHighlight()
+        end
+    end
+end
+
 function Bingo:CreateButton(x, y, name)
-    local bingoButton = CreateFrame("Button", name, self.BingoFrame, "UIPanelButtonTemplate")
-    bingoButton:SetSize(BINGO_BUTTON_SIZE, BINGO_BUTTON_SIZE)
+    local bingoButton = CreateBingoTile(self.BingoFrame, name)
     bingoButton:SetPoint("TOPLEFT", x, y)
-    bingoButton.isChecked = false
-
-    bingoButton:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
-    bingoButton:SetPushedTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonPushed.tga")
-    bingoButton:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
-    bingoButton:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
-
-    bingoButton.text = UI.CreateFontString(bingoButton, 10, BINGO_TILE_FONT_FLAGS)
-    bingoButton.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
-    bingoButton.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
-    bingoButton.text:SetJustifyH("CENTER")
-    bingoButton.text:SetJustifyV("MIDDLE")
 
     bingoButton:SetScript("OnClick", function()
-        if bingoButton.isChecked then
-            Bingo:SetButtonChecked(bingoButton, false)
-            Bingo.CurrentBingoCardBingo = Bingo:CheckForBingo()
-        else
-            Bingo:SetButtonChecked(bingoButton, true)
-            Bingo:SaveBingoCard(bingoButton.cardName, bingoButton.name, bingoButton.index)
-            if not Bingo.CurrentBingoCardBingo then
-                if Bingo:CheckForBingo() then
-                    StaticPopup_Show("BINGO_WIN_DIALOG")
-                end
-            end
+        local hadBingo = Bingo.CurrentBingoCardBingo
+        Bingo:SetButtonChecked(bingoButton, not bingoButton.isChecked)
+        Bingo:SaveBingoCard(bingoButton.cardName, bingoButton.name, bingoButton.index)
+
+        if Bingo:CheckForBingo() and not hadBingo then
+            StaticPopup_Show("BINGO_WIN_DIALOG")
         end
     end)
 
@@ -564,15 +627,15 @@ function Bingo:CreateButton(x, y, name)
 end
 
 function Bingo:CreateButtons()
-    local buttonSize = BINGO_BUTTON_SIZE
+    local buttonStep = BINGO_BUTTON_SIZE + BINGO_BUTTON_SPACING
     local startX = 15
     local startY = -85
     local buttonIndex = 1
 
     for row = 1, 5 do
         for col = 1, 5 do
-            local x = startX + (col - 1) * buttonSize
-            local y = startY - (row - 1) * buttonSize
+            local x = startX + (col - 1) * buttonStep
+            local y = startY - (row - 1) * buttonStep
 
             self.BingoButtons[buttonIndex] = self:CreateButton(x, y, "BingoButton" .. buttonIndex)
             self.BingoButtons[buttonIndex].index = buttonIndex
@@ -625,24 +688,6 @@ function Bingo:LoadButton(cardName, buttonID, cardID, enabled)
     self:SetButtonChecked(self.BingoButtons[buttonID], not enabled)
 end
 
-local function CreatePreviewTile(parent)
-    local tile = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    tile:SetSize(BINGO_BUTTON_SIZE, BINGO_BUTTON_SIZE)
-
-    tile:SetNormalTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonNormal.tga")
-    tile:SetPushedTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonPushed.tga")
-    tile:SetHighlightTexture("Interface\\AddOns\\PartySharkBingo\\Imgs\\ButtonHighlight.tga")
-    tile:GetHighlightTexture():SetTexCoord(0, 1, 0, 1)
-
-    tile.text = UI.CreateFontString(tile, 10, BINGO_TILE_FONT_FLAGS)
-    tile.text:SetPoint("TOPLEFT", BINGO_BUTTON_TEXT_PADDING, -BINGO_BUTTON_TEXT_PADDING)
-    tile.text:SetPoint("BOTTOMRIGHT", -BINGO_BUTTON_TEXT_PADDING, BINGO_BUTTON_TEXT_PADDING)
-    tile.text:SetJustifyH("CENTER")
-    tile.text:SetJustifyV("MIDDLE")
-
-    return tile
-end
-
 local function GetSortedCardEntries(cardName)
     local entries = {}
     local card = Bingo:GetCards()[cardName]
@@ -670,14 +715,7 @@ end
 function Bingo:CreateTilePreviewFrame()
     if self.TilePreviewFrame then return end
 
-    local frame = UI.CreateBackdropFrame(
-        "Frame",
-        "BingoTilePreviewFrame",
-        UIParent,
-        self.DefaultBackdrop,
-        { 0.1, 0.1, 0.1, 0.95 },
-        { 0.6, 0.6, 0.6, 1 }
-    )
+    local frame = UI.CreateBingoPanel("BingoTilePreviewFrame", UIParent, 0.95)
     frame:SetFrameStrata("HIGH")
     frame:SetFrameLevel(10)
     frame:SetMovable(true)
@@ -741,7 +779,7 @@ function Bingo:ShowTilePreviewFrame(cardName)
     for i, item in ipairs(entries) do
         local tile = frame.tiles[i]
         if not tile then
-            tile = CreatePreviewTile(frame)
+            tile = CreateBingoTile(frame)
             frame.tiles[i] = tile
         end
 

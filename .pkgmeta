@@ -6,5 +6,6 @@ manual-changelog:
 
 ignore:
     - "*.png"
+    - "*.afphoto"
     - LEFTOFF.md
     - SESSION_FLOWS.md

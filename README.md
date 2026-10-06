@@ -6,6 +6,7 @@ There is no technical reason why you couldn't use this, but the leader controls 
 
 ## Features
 - 5x5 bingo board with a persistent checked state.
+- Custom cell and marker artwork with glowing hover and winning tiles.
 - Guild-specific default bingo tile data.
 - Automatic tile text sizing with whitespace wrapping.
 - Local shuffle and reset controls.

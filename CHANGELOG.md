@@ -1,9 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [12.1.5-18] - 2026-10-06
 
 ### Fixes
-- Reset and shuffle newly added players' boards when adding them to an existing session.
+- Reset and shuffle newly added players' boards when adding them to an existing session. The session owner and joining players must both update for this behavior.
 
 ## [12.1.5-17] - 2026-10-06
 
@@ -15,10 +15,3 @@
 
 ### Fixes
 - Keep unchecked tiles cleared after reloading, and update winning highlights when marking, unmarking, resetting, or shuffling the board.
-
-## [12.1.0-16] - 2026-09-25
-
-### Changes
-- Improve bingo tile text outlines and allow extra space for outlines during automatic sizing.
-- Refresh the default card with "Push Note", "Biggest Loser", and "I got it! I don't got it." in place of "Wiped to Trash", "Addon Out of Date", and "Bingo Tile Fishing".
-- Recognize additional Dissar and Tenc characters for player-specific tiles.

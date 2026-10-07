@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixes
+- Reset and shuffle newly added players' boards when adding them to an existing session.
+
 ## [12.1.5-17] - 2026-10-06
 
 - Updated for WoW 12.1.5.

@@ -495,7 +495,7 @@ function Bingo:CreateFrames()
             print("|cffFFC125" .. self.ADDON_NAME .. "|cffff6060 |TInterface\\DialogFrame\\UI-Dialog-Icon-AlertNew:0|t Cannot add players during an encounter.")
             return
         end
-        self:SendLockCommand(true)
+        self:SendAddPlayersMessage()
     end)
 
     self.EndButton = UI.CreateStyledButton(self.BingoFrame, "BingoEndButton", BUTTON_WIDTH, BUTTON_HEIGHT, "End")

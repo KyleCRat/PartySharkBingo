@@ -18,6 +18,8 @@ There is no technical reason why you couldn't use this, but the leader controls 
 ## Session Controls
 Party leaders, raid leaders, and raid assistants can start a session. Once a session is active, the player who started it is the session owner and is the only player who can end the session, add players, shuffle all boards, or process session roster updates.
 
+Adding players resets and shuffles only the newcomers' boards; existing participants keep their progress. The owner and joining players must have this update for the automatic shuffle; older clients can still join without it.
+
 Players who are not the session owner can leave the session from the UI. This also works after leaving the group, when addon messages can no longer be sent.
 
 ## Commands

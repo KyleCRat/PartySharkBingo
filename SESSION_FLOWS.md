@@ -58,6 +58,7 @@ This document describes all possible session state scenarios and how the addon h
 | Message | Sender | Purpose |
 |---------|--------|---------|
 | `LOCK` | Leader | Start session or re-add players |
+| `ADD_PLAYERS:1` | Session owner | Reset and shuffle newcomers, then lock them; followed by `LOCK` for join confirmation and compatibility with older clients |
 | `UNLOCK` | Leader | End session |
 | `SHUFFLE` | Leader | Reset and shuffle all followers' boards |
 | `JOIN` | Follower | Confirm participation in session |
@@ -76,6 +77,8 @@ This document describes all possible session state scenarios and how the addon h
 
 ## Notes
 
+- "Add Players" sends `ADD_PLAYERS:1` before `LOCK`. Updated newcomers reset and shuffle once, then lock to the owner. Existing participants and the owner keep their boards, including on repeated add requests. The following `LOCK` confirms participation; older clients still join but do not automatically shuffle.
+- Starting a session, restoring a session after a reload, and replying to `PING` do not trigger the newcomer shuffle.
 - Addon messages work during trash combat but not during boss encounters or M+ runs (Midnight restrictions)
 - UI buttons are blocked during any combat (`InCombatLockdown()`) but messaging system operates freely
 - Session state persists across reloads via `BingoSettings`

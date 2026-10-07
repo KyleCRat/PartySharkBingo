@@ -590,6 +590,12 @@ function Bingo:SendLockCommand(locked)
     self:SendSessionMessage(message)
 end
 
+function Bingo:SendAddPlayersMessage()
+    self:SendSessionMessage("ADD_PLAYERS:1")
+    -- Keep LOCK for older clients; updated newcomers are already locked by then.
+    self:SendLockCommand(true)
+end
+
 function Bingo:GetClassColoredName(fullName)
     -- Try to find the player in raid or party
     local unit
@@ -638,6 +644,14 @@ function Bingo:HandleAddonMessage(message, sender)
         else
             self:SendNoSessionMessage()
         end
+    elseif message == "ADD_PLAYERS:1" then
+        -- Current participants already store this sender as their session owner.
+        if isFromSelf or isFromCurrentOwner then return end
+
+        self:LoadDefaultBingoCards()
+        self:ResetBoard()
+        self:LoadBingoCard(self.CurrentBingoCard)
+        self:SetSessionLocked(true, senderFullName)
     elseif message == "LOCK" then
         self:SetSessionLocked(true, senderFullName)
         -- Send JOIN response to the session owner.
